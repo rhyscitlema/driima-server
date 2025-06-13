@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<title>@Page.HeadTitle</title>
+	@var og = Page.OpenGraph;
+	@if (og != null)
+	{
+		<meta property="og:type" content="@og.Type" />
+		<meta property="og:title" content="@og.Title" />
+		<meta property="og:description" content="@og.Description" />
+		<meta property="og:image" content="@og.Image" />
+		<meta property="og:url" content="@og.URL" />
+
+		<meta name="twitter:card" content="summary_large_image">
+		<meta name="twitter:title" content="@og.Title">
+		<meta name="twitter:description" content="@og.Description">
+		<meta name="twitter:image" content="@og.Image">
+		<meta name="twitter:url" content="@og.URL">
+
+		<meta name="description" content="@og.Description">
+	}
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="stylesheet" href="/lib/prism/prism.css">
+	<link rel="stylesheet" href="/lib/spart/spart.css">
+	<link rel="stylesheet" href="/css/chat.css?v=1.0">
+	<script src="/lib/dompurify/purify.min.js" defer></script>
+	<script src="/lib/marked/marked.min.js" defer></script>
+	<script src="/lib/prism/prism.js" defer></script>
+	<script src="/lib/spart/spart.js" defer></script>
+	<script src="/lib/spart/fetch.js" defer></script>
+	<script src="/js/chat.js?v=1.0" defer></script>
+</head>
+
+<body>
+	<div id="chat-header">@Page.HeadTitle</div>
+	<div id="chat-container">
+		<!-- Messages will be dynamically added here -->
+	</div>
+	<div id="chat-footer">
+		<!-- Reply preview box -->
+		<div id="reply-preview" class="hidden">
+			<span id="reply-text"></span>
+			<button id="cancel-reply">✕</button>
+		</div>
+		<div id="input-area">
+			<textarea id="message-input" placeholder="Type a message" rows="3"></textarea>
+			<button id="send-btn">Send</button>
+		</div>
+	</div>
+</body>
+
+</html>

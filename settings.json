@@ -1,0 +1,7 @@
+{
+	"MySQL_Connection": "server=localhost;username=username;password=password;database=driima",
+	"JwtSecurityKey": "At least 17 characters",
+	"AI_API_URL": "https://api.openai.com/v1/responses",
+	"AI_API_KEY": null
+}
+
