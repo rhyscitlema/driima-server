@@ -1,0 +1,3 @@
+[submodule "public/lib/spart"]
+	path = public/lib/spart
+	url = https://github.com/rhyscitlema/spart.git
