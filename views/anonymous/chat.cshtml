@@ -24,13 +24,26 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<link rel="stylesheet" href="/lib/prism/prism.css">
 	<link rel="stylesheet" href="/lib/spart/spart.css">
+	<link rel="stylesheet" href="/css/login.css?v=1.0">
 	<link rel="stylesheet" href="/css/chat.css?v=1.0">
-	<script src="/lib/dompurify/purify.min.js" defer></script>
-	<script src="/lib/marked/marked.min.js" defer></script>
-	<script src="/lib/prism/prism.js" defer></script>
-	<script src="/lib/spart/spart.js" defer></script>
-	<script src="/lib/spart/fetch.js" defer></script>
-	<script src="/js/chat.js?v=1.0" defer></script>
+	<script defer src="/lib/dompurify/purify.min.js"></script>
+	<script defer src="/lib/marked/marked.min.js"></script>
+	<script defer src="/lib/prism/prism.js"></script>
+	<script defer src="/js/svg.js?v=1.0"></script>
+	<script type="importmap">
+	{
+		"imports": {
+			"spart": "/lib/spart/spart.js?v=1.0",
+			"fetch": "/lib/spart/fetch.js?v=1.0",
+			"login": "/js/login.js?v=1.0",
+			"chat": "/js/chat.js?v=1.0"
+		}
+	}
+	</script>
+	<script type="module">
+		import { initializeApp } from 'login';
+		document.addEventListener('DOMContentLoaded', initializeApp);
+	</script>
 </head>
 
 <body>
@@ -49,6 +62,12 @@
 			<button id="send-btn">Send</button>
 		</div>
 	</div>
+	<script>
+		@if (User.Id != undefined)
+		{
+			window.isAuthenticated = true;
+		}
+	</script>
 </body>
 
 </html>

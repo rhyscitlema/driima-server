@@ -1,6 +1,5 @@
 #include <ctype.h>
 #include "base.h"
-#include "../models/message.h"
 
 typedef struct RoomInfo
 {
@@ -22,7 +21,7 @@ static errno_t room_info_callback(void *context, int argc, char **argv, char **c
 	room->id = atoi(argv[0]);
 	room->state = atoi(argv[1]);
 	room->joinKey = atoi(argv[2]);
-	str_copy(room->skippedMessageId, sizeof(room->skippedMessageId), NS(argv[3]));
+	str_copy(room->skippedMessageId, sizeof(room->skippedMessageId), argv[3]);
 
 	room->groupName[0] = '\0';
 	room->groupAbout[0] = '\0';
@@ -30,9 +29,9 @@ static errno_t room_info_callback(void *context, int argc, char **argv, char **c
 
 	if (argc == min + 3)
 	{
-		str_copy(room->groupName, sizeof(room->groupName), NS(argv[4]));
-		str_copy(room->groupAbout, sizeof(room->groupAbout), NS(argv[5]));
-		str_copy(room->bannerImage, sizeof(room->bannerImage), NS(argv[6]));
+		str_copy(room->groupName, sizeof(room->groupName), argv[4]);
+		str_copy(room->groupAbout, sizeof(room->groupAbout), argv[5]);
+		str_copy(room->bannerImage, sizeof(room->bannerImage), argv[6]);
 	}
 	return 0;
 }
@@ -89,75 +88,6 @@ finish:
 	return status;
 }
 
-static void get_ip_addr(HttpContext *c, char *ip_addr, size_t capacity)
-{
-	// In case Apache is behind a proxy/load balancer
-	const char *ip = apr_table_get(c->request->headers_in, "X-Forwarded-For");
-
-	if (str_empty(ip)) // try the direct way
-		ip = c->request->connection->client_ip;
-
-	if (str_empty(ip))
-		strcpy(ip_addr, "null");
-	else
-		snprintf(ip_addr, capacity, "'%s'", ip);
-}
-
-typedef struct UserInfo
-{
-	long userId;
-	long sessionId;
-	enum UserType userType;
-	enum PlatformType platformType;
-} UserInfo;
-
-static errno_t sign_in_callback(void *context, int argc, char **argv, char **columns)
-{
-	CHECK_SQL_CALLBACK(2);
-	UserInfo *info = (UserInfo *)context;
-	info->userId = strtol(argv[0], NULL, 10);
-	info->sessionId = strtol(argv[1], NULL, 10);
-	return 0;
-}
-
-static apr_status_t sign_in(HttpContext *c, UserInfo *info, char *buffer, size_t capacity)
-{
-	if (c->identity.authenticated)
-		return OK; // already signed in
-
-	DbQuery query = {.dbc = &c->dbc};
-	query.callback = sign_in_callback;
-	query.callback_context = info;
-
-	const char *format =
-		"INSERT INTO `Users` (Type) VALUES (%d);\n"
-		"SET @userId = LAST_INSERT_ID();\n"
-		"INSERT INTO `Sessions` (UserId, IPAddress) VALUES (@userId, %s);\n"
-		"SET @sessionId = LAST_INSERT_ID();\n"
-		"SELECT @userId, @sessionId;\n";
-
-	char ip_addr[40];
-	get_ip_addr(c, ip_addr, sizeof(ip_addr));
-
-	snprintf(buffer, capacity, format, info->userType, ip_addr);
-	query.sql = buffer;
-
-	if (sql_exec(&query, NULL) != 0)
-	{
-		strcpy(buffer, "Failed to create the anonymous user");
-		return 500;
-	}
-
-	APP_LOG(LOG_INFO, "Added new anonymous user with sessionId %lld", info->sessionId);
-
-	AccessIdentity x = {0};
-	sprintf(x.sub, "%ld", info->userId);
-	sprintf(x.sid, "%ld", info->sessionId);
-
-	int tenYears = 10 * 365 * 24 * 60 * 60;
-	return set_authentication_cookie(c, &x, tenYears);
-}
-
 struct messages_callback
 {
 	int userId;
@@ -201,8 +131,6 @@ static errno_t messages_callback(void *context, int argc, char **argv, char **co
 
 static apr_status_t get_messages(HttpContext *c)
 {
-	UserInfo user = {.userType = UserType_Anonymous, .platformType = PlatformType_Browser};
-
 	int groupId = 0, joinKey = 0;
 	char *lastMessageDateSent = NULL;
 
@@ -223,10 +151,6 @@ static apr_status_t get_messages(HttpContext *c)
 	RoomInfo room;
 
 	apr_status_t status = get_room_info(c, &room, buffer, groupId, joinKey, false);
-	if (status != OK)
-		return http_problem(c, NULL, buffer, status);
-
-	status = sign_in(c, &user, buffer, sizeof(buffer));
 	if (status != OK)
 		return http_problem(c, NULL, buffer, status);
 
@@ -279,7 +203,7 @@ errno_t add_message(DbContext *dbc, Message m, char id[GUID_STORE])
 	else
 	{
 		APP_LOG(LOG_WARNING, "Message ID was provided: %s", m.id);
-		str_copy(id, GUID_STORE, NS(m.id));
+		str_copy(id, GUID_STORE, m.id);
 	}
 
 	if (m.type == 0)
@@ -325,6 +249,10 @@ static apr_status_t send_message(HttpContext *c)
 	char buffer[MIN_BUFFER_SIZE];
 	JsonObject *msg = NULL;
 	apr_status_t status = OK;
+
+	status = ensure_session_exists(c);
+	if (status != OK)
+		return status;
 
 	if (get_request_body(c) != 0)
 	{
@@ -418,9 +346,9 @@ static apr_status_t send_message(HttpContext *c)
 		// pretend to free this, it will be freed inside send_to_ai()
 		app->memory.track("send_to_ai", MEM_OPR_FREE);
 
-		str_copy(data->cwd, sizeof(data->cwd), NS(app->cwd));
-		strcpy(data->logger_tag, app->logger.tag);
-		strcpy(data->messageId, id); // id is valid at this point
+		str_copy(data->cwd, sizeof(data->cwd), app->cwd);
+		str_copy(data->logger_tag, GUID_STORE, app->logger.tag);
+		str_copy(data->messageId, GUID_STORE, id); // id is valid at this point
 		data->roomId = m.roomId;
 
 		apr_pool_cleanup_register(c->request->pool, data, (apr_status_t (*)(void *))send_message_to_ai, apr_pool_cleanup_null);
@@ -453,7 +381,7 @@ static errno_t m_info_callback(void *context, int argc, char **argv, char **colu
 	CHECK_SQL_CALLBACK(2);
 	struct m_info *info = (struct m_info *)context;
 	info->userId = atoi(argv[0]);
-	str_copy(info->parentId, sizeof(info->parentId), NS(argv[1]));
+	str_copy(info->parentId, sizeof(info->parentId), argv[1]);
 	return 0;
 }
 
@@ -509,7 +437,7 @@ static apr_status_t get_and_validate_message_id(HttpContext *c, char id[GUID_STO
 	while ((pair = get_next_url_query_argument(&c->request_args, '&', true)).key != NULL)
 	{
 		if (str_equal(pair.key, "id"))
-			str_copy(id, GUID_STORE, NS(pair.value));
+			str_copy(id, GUID_STORE, pair.value);
 	}
 
 	if (str_empty(id))
@@ -591,8 +519,8 @@ static apr_status_t anonymous_chat(HttpContext *c)
 	json_put_string(og, "Title", room.groupName, 0);
 	json_put_string(og, "Description", room.groupAbout, 0);
 
-	unsigned len = get_base_url(c->request, buffer, sizeof(buffer));
-	sprintf(buffer + len, "%s?g=%d", c->request->uri, groupId);
+	get_base_url(c->request, buffer, sizeof(buffer));
+	sprintf(buffer + strlen(buffer), "%s?g=%d", c->request->uri, groupId);
 	json_put_string(og, "URL", buffer, 0);
 
 	if (file_path_to_full_url(c, buffer, sizeof(buffer), room.bannerImage))

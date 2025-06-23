@@ -4,6 +4,7 @@ OUT_DIR = build/
 OBJECT_FILES =\
 	$(OUT_DIR)startup.o \
 	$(OUT_DIR)services/ai.o \
+	$(OUT_DIR)controllers/account.o \
 	$(OUT_DIR)controllers/message.o
 
 SITE_NAME = driima
@@ -23,7 +24,7 @@ INCLUDE_FILES = ./*.h $(LIBAPP)src/*.h $(LIBWEB)src/*.h \
 BASIC_FLAGS = -std=c99 -g -Wall -Wextra -Wconversion -Wwrite-strings -pedantic
 WARN_TO_ERROR = -Werror=implicit-function-declaration -Werror=implicit-int -Wincompatible-pointer-types
 SECURITY_FLAGS = -Wformat -Werror=format-security -fstack-protector-strong
-ADVANCED_FLAGS = -fPIC
+ADVANCED_FLAGS = -fPIC -fvisibility=hidden
 DEFINITIONS = '-D__LIB__="$(SITE_NAME)"' -D_REENTRANT
 APACHE_DIRS ?= -I /usr/include/apache2 -I /usr/include/apr-1.0
 INCLUDES_DIRS = -I ~/.local/lib $(APACHE_DIRS) -I $(LIBAPP)src -I $(LIBWEB)src
@@ -35,7 +36,8 @@ AR_FLAGS = -crs
 
 #-------------------------------------------------
 
-default: $(OUTPUT_FILE)
+VALID = $(OUT_DIR)validate.done
+default: $(VALID)
 
 $(OUT_DIR):
 	mkdir -p $(OUT_DIR)models/
@@ -62,9 +64,6 @@ $(SO_FILE): $(OUTPUT_FILE) $(LIBWEB_A) $(LIBAPP_A) module.c
 	$(CC) --shared -fPIC $(APACHE_DIRS) -DSITE_NAME=$(SITE_NAME) module.c $(OUTPUT_FILE) $(LIBWEB_A) $(LIBAPP_A) -lmysqlclient -lcrypto -lcurl -o $(SO_FILE)
 
 # Check against an unresolved symbol
-VALID = $(OUT_DIR)validate.done
-validate: $(VALID)
-
 $(VALID): $(SO_FILE)
 	nm -D $(SO_FILE) | grep " U " | grep -vE "@|ap_|apr_" && exit 1 || exit 0
 	touch $(VALID)

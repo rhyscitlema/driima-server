@@ -4,4 +4,6 @@
 #include "../startup.h"
 #include "../models/message.h"
 
+apr_status_t ensure_session_exists(HttpContext *c);
+
 #endif

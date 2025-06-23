@@ -1,3 +1,5 @@
+import { toast, createElement, createSVGElement } from 'spart';
+import { _fetch, apiFetch, showProblemDetail } from 'fetch';
 
 const urlParams = new URLSearchParams(window.location.search);
 const groupId = +(urlParams.get('g') || "0");
@@ -9,25 +11,42 @@ let parentId = null;
 const messagesMap = {}; // messages stored by id for re-use
 
 // DOM elements
-const chatContainer = document.getElementById("chat-container");
-const messageInput = document.getElementById("message-input");
-const sendBtn = document.getElementById("send-btn");
-const replyPreview = document.getElementById("reply-preview");
-const replyText = document.getElementById("reply-text");
-const cancelReplyBtn = document.getElementById("cancel-reply");
+let chatContainer = null;
+let messageInput = null;
+let sendBtn = null;
+let replyPreview = null;
+let replyText = null;
+let cancelReplyBtn = null;
+
+function initializeElements() {
+	if (chatContainer)
+		return; // Already initialized
+
+	chatContainer = document.getElementById("chat-container");
+	messageInput = document.getElementById("message-input");
+	sendBtn = document.getElementById("send-btn");
+	replyPreview = document.getElementById("reply-preview");
+	replyText = document.getElementById("reply-text");
+	cancelReplyBtn = document.getElementById("cancel-reply");
+
+	// Event listeners
+	sendBtn.addEventListener("click", sendMessage);
+	cancelReplyBtn.addEventListener("click", cancelReply);
+}
 
 // Fetch messages from the API
 let fetching = false;
 let isonline = true; // Assume online initially
 
-async function fetchMessages() {
+export function fetchMessages() {
+	initializeElements();
 	if (fetching) return;
 	fetching = true;
 
 	let url = `/api/message/many?groupId=${groupId}&joinKey=${joinKey}`;
 	url += '&lastMessageDateSent=' + lastMessageDateSent;
 
-	_fetch(url).then((response) => {
+	return _fetch(url).then((response) => {
 		if (!response.ok) {
 			if (response.status) {
 				showProblemDetail(response);
@@ -120,7 +139,7 @@ function onDeleteMessage(message, e) {
 	quit_options(e);
 	if (confirm("Please confirm you want to delete")) {
 		const url = "/api/message/delete?id=" + message.id;
-		_fetch(url, "DELETE").then((response) => {
+		apiFetch(url, "DELETE").then((response) => {
 			if (response.ok) {
 				const elem = document.getElementById(message.id);
 				elem.remove();
@@ -162,7 +181,7 @@ function onHideFromAI(message, e) {
 	}
 
 	const url = "/api/message/hide-from-ai?id=" + message.id;
-	_fetch(url, "PATCH").then((response) => {
+	apiFetch(url, "PATCH").then((response) => {
 		if (response.ok)
 			changeSkippedMessage(message.id);
 		else showProblemDetail(response);
@@ -180,8 +199,7 @@ function onCopyMessage(message, e) {
 		});
 }
 
-const optionsButtonSvgString = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" focusable="false"><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"></path></svg>';
-const optionsButtonSvgElem = createSVGElement(optionsButtonSvgString);
+const optionsButtonSvgElem = createSVGElement(svgStrings.optionsButton);
 
 function sentOrCausedByMe(message) {
 	while (true) {
@@ -225,7 +243,7 @@ function createMessageOptionsButton(message) {
 	];
 
 	if (sentOrCausedByMe(message)) {
-		options.push({ text: "Delete", events: { 'click': (e) => onDeleteMessage(message, e) } });
+		options.push({ text: "Delete", events: { 'click': (e) => onDeleteMessage(message, e) }, class: "delete-msg" });
 		options.push({ text: "Hide from AI", events: { 'click': (e) => onHideFromAI(message, e) }, class: "hide-from-ai" });
 	}
 
@@ -303,7 +321,7 @@ function sendMessage() {
 		parentId: parentId,
 		content: content
 	};
-	_fetch('/api/message/send', 'POST', payload).then(response => {
+	apiFetch('/api/message/send', 'POST', payload).then(response => {
 		if (response.ok) {
 			// Clear input and reset reply state
 			messageInput.value = "";
@@ -326,16 +344,3 @@ function cancelReply() {
 	replyPreview.classList.add("hidden");
 	replyText.textContent = "";
 }
-
-// Event listeners
-sendBtn.addEventListener("click", sendMessage);
-cancelReplyBtn.addEventListener("click", cancelReply);
-
-// Initial fetch and periodic polling
-fetchMessages();
-setInterval(fetchMessages, 4000);
-
-// Make the body height match the visual viewport height
-window.visualViewport.addEventListener('resize', () => {
-	document.body.style.height = `${window.visualViewport.height}px`;
-});

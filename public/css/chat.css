@@ -55,7 +55,7 @@ body {
 	background-color: lightyellow;
 }
 
-.ai-skipped .hide-from-ai {
+.ai-skipped .hide-from-ai, .ai-skipped .delete-msg {
 	display: none;
 }
 

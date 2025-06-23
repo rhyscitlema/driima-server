@@ -178,8 +178,7 @@ static void store_http_request(const char *api_url, const char *request_content,
 static errno_t skippedDateSent_callback(void *context, int argc, char **argv, char **columns)
 {
 	CHECK_SQL_CALLBACK(1);
-	if (!str_empty(argv[0]))
-		strcpy((char *)context, argv[0]);
+	str_copy((char *)context, DATE_STORE, argv[0]);
 	return 0;
 }
 
@@ -268,7 +267,7 @@ static void chat_with_ai(DbContext *dbc, int roomId, const char *messageId)
 	json_array_add(messages, get_message("developer", buffer.data));
 
 	char skippedDateSent[DATE_STORE];
-	strcpy(skippedDateSent, "1970-01-01 00:00:00");
+	str_copy(skippedDateSent, DATE_STORE, "1970-01-01 00:00:00");
 
 	DbQuery query = {.dbc = dbc};
 	query.callback = skippedDateSent_callback;
@@ -347,7 +346,7 @@ errno_t send_message_to_ai(struct send_to_ai *data)
 	// this was allocated before send_to_ai() was called
 	app.memory.track("send_to_ai", MEM_OPR_ALLOC);
 
-	strcpy(app.logger.tag, data->logger_tag);
+	str_copy(app.logger.tag, GUID_STORE, data->logger_tag);
 	app.cwd = data->cwd;
 
 	DbContext dbc = db_context_init(DBMS_MySQL, NULL);
