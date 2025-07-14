@@ -25,7 +25,7 @@ apr_status_t ensure_session_exists(HttpContext *c)
 	argv[query.argc++] = json_new_long(sessionId, false);
 
 	if (sql_exec(&query, argv) != 0)
-		return http_problem(c, NULL, "Failed to check session existence", HTTP_INTERNAL_SERVER_ERROR);
+		return http_problem(c, NULL, tl("Failed to check session existence"), HTTP_INTERNAL_SERVER_ERROR);
 
 	if (userId != 0)
 		return OK; // session exists, all good
@@ -43,7 +43,7 @@ apr_status_t ensure_session_exists(HttpContext *c)
 	argv[query.argc++] = json_new_int(UserType_Anonymous, false);
 
 	if (sql_exec(&query, argv) != 0)
-		return http_problem(c, NULL, "Failed to create user entry", HTTP_INTERNAL_SERVER_ERROR);
+		return http_problem(c, NULL, tl("Failed to create user entry"), HTTP_INTERNAL_SERVER_ERROR);
 
 	query.sql = "INSERb INTO `Sessions` (Id, UserId, IPAddress) VALUES (?, ?, ?);";
 	query.argc = 0;
@@ -52,7 +52,7 @@ apr_status_t ensure_session_exists(HttpContext *c)
 	argv[query.argc++] = json_new_str(ip_addr, true);
 
 	if (sql_exec(&query, argv) != 0)
-		return http_problem(c, NULL, "Failed to recreate user session", HTTP_INTERNAL_SERVER_ERROR);
+		return http_problem(c, NULL, tl("Failed to recreate user session"), HTTP_INTERNAL_SERVER_ERROR);
 
 	APP_LOG(LOG_INFO, "Recreated session %lld for user %lld", sessionId, userId);
 	return OK;
@@ -61,7 +61,7 @@ apr_status_t ensure_session_exists(HttpContext *c)
 static apr_status_t anonymous_login(HttpContext *c, const char *password, AccessIdentity *auth)
 {
 	if (!is_sql_safe(password, 32))
-		return http_problem(c, NULL, "Invalid GUID format", HTTP_BAD_REQUEST);
+		return http_problem(c, NULL, tl("Invalid GUID format"), HTTP_BAD_REQUEST);
 
 	row_id_t userId = 0, sessionId = 0;
 	DbQuery query = {.dbc = &c->dbc};
@@ -74,7 +74,7 @@ static apr_status_t anonymous_login(HttpContext *c, const char *password, Access
 	argv[query.argc++] = json_new_str(password, false);
 
 	if (sql_exec(&query, argv) != 0)
-		return http_problem(c, NULL, "Failed to query user", HTTP_INTERNAL_SERVER_ERROR);
+		return http_problem(c, NULL, tl("Failed to query user"), HTTP_INTERNAL_SERVER_ERROR);
 
 	query.callback = NULL;
 
@@ -90,7 +90,7 @@ static apr_status_t anonymous_login(HttpContext *c, const char *password, Access
 		argv[query.argc++] = json_new_int(UserType_Anonymous, false);
 
 		if (sql_exec(&query, argv) != 0)
-			return http_problem(c, NULL, "Failed to create new user", HTTP_INTERNAL_SERVER_ERROR);
+			return http_problem(c, NULL, tl("Failed to create new user"), HTTP_INTERNAL_SERVER_ERROR);
 	}
 
 	// now create the session
@@ -102,7 +102,7 @@ static apr_status_t anonymous_login(HttpContext *c, const char *password, Access
 	argv[query.argc++] = json_new_str(ip_addr, true);
 
 	if (sql_exec(&query, argv) != 0)
-		return http_problem(c, NULL, "Failed to create new session", HTTP_INTERNAL_SERVER_ERROR);
+		return http_problem(c, NULL, tl("Failed to create new session"), HTTP_INTERNAL_SERVER_ERROR);
 
 	snprintf(auth->sub, sizeof(auth->sub), "%lld", userId);
 	snprintf(auth->sid, sizeof(auth->sid), "%lld", sessionId);
@@ -114,7 +114,7 @@ static apr_status_t anonymous_login(HttpContext *c, const char *password, Access
 static apr_status_t login(HttpContext *c)
 {
 	if (get_request_body(c) != 0)
-		return http_problem(c, NULL, "Failed to read the request body", HTTP_BAD_REQUEST);
+		return http_problem(c, NULL, tl("Failed to read the request body"), HTTP_BAD_REQUEST);
 
 	char *username = NULL, *password = NULL;
 
@@ -127,12 +127,12 @@ static apr_status_t login(HttpContext *c)
 	}
 
 	if (str_empty(username) || str_empty(password))
-		return http_problem(c, NULL, "Username or password not provided", HTTP_BAD_REQUEST);
+		return http_problem(c, NULL, tl("Username or password not provided"), HTTP_BAD_REQUEST);
 
 	AccessIdentity auth = {0};
 
 	if (!str_equal(username, "ANO"))
-		return http_problem(c, NULL, "Please use an ANO user", HTTP_NOT_IMPLEMENTED);
+		return http_problem(c, NULL, tl("Please use an ANO user"), HTTP_NOT_IMPLEMENTED);
 
 	apr_status_t status = anonymous_login(c, password, &auth);
 	if (status != OK)
@@ -141,7 +141,7 @@ static apr_status_t login(HttpContext *c)
 	int max_age = 10 * 365 * 24 * 60 * 60;
 
 	if (set_authentication_cookie(c, &auth, max_age) != 0)
-		return http_problem(c, NULL, "Failed to set authentication cookie", HTTP_INTERNAL_SERVER_ERROR);
+		return http_problem(c, NULL, tl("Failed to set authentication cookie"), HTTP_INTERNAL_SERVER_ERROR);
 
 	return HTTP_NO_CONTENT;
 }

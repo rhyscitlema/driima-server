@@ -75,10 +75,9 @@ errno_t update_room_state(DbContext *dbc, int roomId, enum RoomState state);
 
 struct send_to_ai
 {
-	char logger_tag[GUID_STORE];
+	AppBackup app_backup;
 	char messageId[GUID_STORE];
 	int roomId;
-	char cwd[512];
 };
 errno_t send_message_to_ai(struct send_to_ai *data);
 

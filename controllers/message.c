@@ -65,21 +65,21 @@ static apr_status_t get_room_info(HttpContext *c, RoomInfo *room, char *buffer, 
 
 	if (sql_exec(&query, argv) != 0)
 	{
-		strcpy(buffer, "Internal error: failed to get room info");
+		strcpy(buffer, tl("Internal error: failed to get room info"));
 		status = HTTP_INTERNAL_SERVER_ERROR;
 		goto finish;
 	}
 
 	if (room->id == 0) // if not found
 	{
-		sprintf(buffer, "Group %d not found", groupId);
+		sprintf(buffer, tl("Group %d not found"), groupId);
 		status = HTTP_NOT_FOUND;
 		goto finish;
 	}
 
 	if (room->joinKey != joinKey)
 	{
-		strcpy(buffer, "Join key provided is not valid");
+		strcpy(buffer, tl("Join key provided is not valid"));
 		status = HTTP_FORBIDDEN;
 		goto finish;
 	}
@@ -171,7 +171,7 @@ static apr_status_t get_messages(HttpContext *c)
 	if (sql_exec(&query, argv) != 0)
 	{
 		cJSON_Delete(context.messages);
-		return http_problem(c, NULL, "An error has occurred while obtaining the messages", 500);
+		return http_problem(c, NULL, tl("An error has occurred while obtaining the messages"), 500);
 	}
 
 	vm_add(c, "skippedMessageId", room.skippedMessageId, 0);
@@ -256,7 +256,7 @@ static apr_status_t send_message(HttpContext *c)
 
 	if (get_request_body(c) != 0)
 	{
-		strcpy(buffer, "Failed to read the request body");
+		strcpy(buffer, tl("Failed to read the request body"));
 		status = HTTP_BAD_REQUEST;
 		goto finish;
 	}
@@ -264,7 +264,7 @@ static apr_status_t send_message(HttpContext *c)
 	msg = cJSON_Parse(c->request_body.data);
 	if (!cJSON_IsObject(msg))
 	{
-		strcpy(buffer, "Failed to parse the request body");
+		strcpy(buffer, tl("Failed to parse the request body"));
 		status = HTTP_BAD_REQUEST;
 		goto finish;
 	}
@@ -289,7 +289,7 @@ static apr_status_t send_message(HttpContext *c)
 		m.dateSent = time_us_from_string(dateSent, TIMEZONE_UTC, NULL, 0);
 		if (errno != 0)
 		{
-			strcpy(buffer, "Invalid date format");
+			strcpy(buffer, tl("Invalid date format"));
 			status = HTTP_BAD_REQUEST;
 			goto finish;
 		}
@@ -297,7 +297,7 @@ static apr_status_t send_message(HttpContext *c)
 
 	if (str_empty(m.content))
 	{
-		strcpy(buffer, "Message content was not provided");
+		strcpy(buffer, tl("Message content was not provided"));
 		status = HTTP_BAD_REQUEST;
 		goto finish;
 	}
@@ -306,7 +306,7 @@ static apr_status_t send_message(HttpContext *c)
 
 	if (m.content[0] == '@' && isspace(m.content[1]))
 	{
-		strcpy(buffer, "A space after '@' at the start of the message is not allowed");
+		strcpy(buffer, tl("A space after '@' at the start of the message is not allowed"));
 		status = HTTP_BAD_REQUEST;
 		goto finish;
 	}
@@ -317,7 +317,7 @@ static apr_status_t send_message(HttpContext *c)
 
 	if (sendToAI && room.state == RoomState_AIBusy)
 	{
-		strcpy(buffer, "AI is busy, please wait");
+		strcpy(buffer, tl("AI is busy, please wait"));
 		status = HTTP_SERVICE_UNAVAILABLE;
 		goto finish;
 	}
@@ -325,7 +325,7 @@ static apr_status_t send_message(HttpContext *c)
 	char id[GUID_STORE];
 	if (add_message(&c->dbc, m, id) != 0)
 	{
-		strcpy(buffer, "Failed to add the message");
+		strcpy(buffer, tl("Failed to add the message"));
 		status = HTTP_INTERNAL_SERVER_ERROR;
 		goto finish;
 	}
@@ -335,19 +335,16 @@ static apr_status_t send_message(HttpContext *c)
 	{
 		if (update_room_state(&c->dbc, m.roomId, RoomState_AIBusy) != 0)
 		{
-			strcpy(buffer, "An error has occurred while updating the room state");
+			strcpy(buffer, tl("An error has occurred while updating the room state"));
 			status = 500;
 			goto finish;
 		}
 
-		struct send_to_ai *data = _malloc(sizeof(struct send_to_ai), "send_to_ai");
-		struct App *app = get_app();
+		str_lit_t tracker = "send_to_ai";
+		struct send_to_ai *data = _malloc(sizeof(struct send_to_ai), tracker);
+		data->app_backup.malloc_tracker = tracker;
 
-		// pretend to free this, it will be freed inside send_to_ai()
-		app->memory.track("send_to_ai", MEM_OPR_FREE);
-
-		str_copy(data->cwd, sizeof(data->cwd), app->cwd);
-		str_copy(data->logger_tag, GUID_STORE, app->logger.tag);
+		get_app_backup(&data->app_backup, get_app());
 		str_copy(data->messageId, GUID_STORE, id); // id is valid at this point
 		data->roomId = m.roomId;
 
@@ -405,13 +402,13 @@ static apr_status_t sent_or_caused_by_me(HttpContext *c, const char *id)
 		info.userId = 0; // clear first
 		if (sql_exec(&query, argv) != 0)
 		{
-			sprintf(buffer, "Failed to get info of message %s", id);
+			sprintf(buffer, tl("Failed to get info of message %s"), id);
 			return http_problem(c, NULL, buffer, HTTP_INTERNAL_SERVER_ERROR);
 		}
 
 		if (info.userId == 0)
 		{
-			sprintf(buffer, "Message %s not found", id);
+			sprintf(buffer, tl("Message %s not found"), id);
 			return http_problem(c, NULL, buffer, HTTP_NOT_FOUND);
 		}
 
@@ -420,7 +417,7 @@ static apr_status_t sent_or_caused_by_me(HttpContext *c, const char *id)
 
 		if (info.userId != 1 || str_empty(info.parentId))
 		{
-			strcpy(buffer, "This message was not sent nor caused by you");
+			strcpy(buffer, tl("This message was not sent nor caused by you"));
 			return http_problem(c, NULL, buffer, HTTP_FORBIDDEN);
 		}
 
@@ -441,10 +438,10 @@ static apr_status_t get_and_validate_message_id(HttpContext *c, char id[GUID_STO
 	}
 
 	if (str_empty(id))
-		return http_problem(c, NULL, "Message id not provided", HTTP_BAD_REQUEST);
+		return http_problem(c, NULL, tl("Message id not provided"), HTTP_BAD_REQUEST);
 
 	if (!is_sql_safe(id, GUID_STORE))
-		return http_problem(c, NULL, "Invalid message id provided", HTTP_BAD_REQUEST);
+		return http_problem(c, NULL, tl("Invalid message id provided"), HTTP_BAD_REQUEST);
 
 	return sent_or_caused_by_me(c, id);
 }
@@ -464,7 +461,7 @@ static apr_status_t delete_message(HttpContext *c)
 	argv[query.argc++] = json_new_str(id, false);
 
 	if (sql_exec(&query, argv) != 0)
-		return http_problem(c, NULL, "Failed to delete the message", 500);
+		return http_problem(c, NULL, tl("Failed to delete the message"), 500);
 
 	return HTTP_NO_CONTENT;
 }
@@ -488,7 +485,7 @@ static apr_status_t hide_message_from_ai(HttpContext *c)
 	argv[query.argc++] = json_new_str(id, false);
 
 	if (sql_exec(&query, argv) != 0)
-		return http_problem(c, NULL, "Failed to hide the message from AI", 500);
+		return http_problem(c, NULL, tl("Failed to hide the message from AI"), 500);
 
 	return HTTP_NO_CONTENT;
 }

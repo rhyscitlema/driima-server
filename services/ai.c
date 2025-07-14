@@ -39,7 +39,7 @@ static bool process_ai_response(const char *response, JsonArray *messages, DbCon
 	{
 		cJSON_Delete(response_json);
 		APP_LOG(LOG_ERROR, "No output in AI response: %s", response);
-		m.content = "Internal Error: No output in AI response.";
+		m.content = tl("Internal Error: No output in AI response.");
 		add_message(dbc, m, NULL);
 		return false;
 	}
@@ -312,7 +312,7 @@ static void chat_with_ai(DbContext *dbc, int roomId, const char *messageId)
 
 		if (response.status_code != 200)
 		{
-			sprintf(_buffer, "The request to AI failed with status %d.", response.status_code);
+			sprintf(_buffer, tl("The request to AI failed with status %d."), response.status_code);
 			m.content = _buffer;
 			add_message(dbc, m, NULL);
 			break;
@@ -320,7 +320,7 @@ static void chat_with_ai(DbContext *dbc, int roomId, const char *messageId)
 
 		if (str_empty(response.content.data))
 		{
-			m.content = "Failed to read the response content from AI.";
+			m.content = tl("Failed to read the response content from AI.");
 			add_message(dbc, m, NULL);
 			break;
 		}
@@ -343,11 +343,7 @@ errno_t send_message_to_ai(struct send_to_ai *data)
 	if (set_app(&app, SetApp_Init) != 0) // must come first
 		return errno;
 
-	// this was allocated before send_to_ai() was called
-	app.memory.track("send_to_ai", MEM_OPR_ALLOC);
-
-	str_copy(app.logger.tag, GUID_STORE, data->logger_tag);
-	app.cwd = data->cwd;
+	use_app_backup(&data->app_backup, &app); // must come second
 
 	DbContext dbc = db_context_init(DBMS_MySQL, NULL);
 
@@ -357,7 +353,7 @@ errno_t send_message_to_ai(struct send_to_ai *data)
 
 	update_room_state(&dbc, data->roomId, RoomState_Normal);
 
-	_free(data, "send_to_ai");
-	set_app(NULL, SetApp_Clear);
+	_free(data, data->app_backup.malloc_tracker); // must come second to last
+	set_app(NULL, SetApp_Clear); // must come last
 	return 0;
 }
