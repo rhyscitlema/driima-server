@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="@Page.Language">
 
 <head>
 	<meta charset="UTF-8">
@@ -24,8 +24,8 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<link rel="stylesheet" href="/lib/prism/prism.css">
 	<link rel="stylesheet" href="/lib/spart/spart.css">
-	<link rel="stylesheet" href="/css/login.css?v=1.0">
-	<link rel="stylesheet" href="/css/chat.css?v=1.0">
+	<link rel="stylesheet" href="/css/login.css?v=1.1">
+	<link rel="stylesheet" href="/css/chat.css?v=1.1">
 	<script defer src="/lib/dompurify/purify.min.js"></script>
 	<script defer src="/lib/marked/marked.min.js"></script>
 	<script defer src="/lib/prism/prism.js"></script>
@@ -33,10 +33,11 @@
 	<script type="importmap">
 	{
 		"imports": {
-			"spart": "/lib/spart/spart.js?v=1.0",
-			"fetch": "/lib/spart/fetch.js?v=1.0",
-			"login": "/js/login.js?v=1.0",
-			"chat": "/js/chat.js?v=1.0"
+			"spart": "/lib/spart/spart.js?v=1.1",
+			"fetch": "/lib/spart/fetch.js?v=1.1",
+			"i18n": "/lib/spart/i18n.js?v=1.1",
+			"login": "/js/login.js?v=1.1",
+			"chat": "/js/chat.js?v=1.1"
 		}
 	}
 	</script>
@@ -44,10 +45,23 @@
 		import { initializeApp } from 'login';
 		document.addEventListener('DOMContentLoaded', initializeApp);
 	</script>
+	<script>
+		@if (User.Id != undefined)
+		{
+			window.isAuthenticated = true;
+		}
+	</script>
 </head>
 
 <body>
-	<div id="chat-header">@Page.HeadTitle</div>
+	<div id="chat-header">
+		<span>@Page.HeadTitle</span>
+		<select id="language">
+			<option hidden></option>
+			<option value="en">EN</option>
+			<option value="fr">FR</option>
+		</select>
+	</div>
 	<div id="chat-container">
 		<!-- Messages will be dynamically added here -->
 	</div>
@@ -58,16 +72,10 @@
 			<button id="cancel-reply">✕</button>
 		</div>
 		<div id="input-area">
-			<textarea id="message-input" placeholder="Type a message" rows="3"></textarea>
-			<button id="send-btn">Send</button>
+			<textarea id="message-input" rows="3"></textarea>
+			<button id="send-btn"></button>
 		</div>
 	</div>
-	<script>
-		@if (User.Id != undefined)
-		{
-			window.isAuthenticated = true;
-		}
-	</script>
 </body>
 
 </html>

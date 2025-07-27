@@ -1,5 +1,5 @@
-import { fetchMessages } from 'chat';
-import { toast, createElement } from 'spart';
+import { initializeElements, fetchMessages } from 'chat';
+import { setup, toast, createElement, updateElement } from 'spart';
 import { sendParams, showProblemDetail } from 'fetch';
 
 function generateGUID() {
@@ -28,14 +28,14 @@ export function createLoginUI() {
 				{
 					tag: 'div', class: 'form-group',
 					content: [
-						{ tag: 'label', for: login_username, text: 'Username:' },
+						{ tag: 'label', for: login_username, content: [{ text: 'Username' }, { text: ':' }] },
 						{ tag: 'input', id: login_username, placeholder: "Username" }
 					]
 				},
 				{
 					tag: 'div', class: 'form-group',
 					content: [
-						{ tag: 'label', for: login_password, text: 'Password:' },
+						{ tag: 'label', for: login_password, content: [{ text: 'Password' }, { text: ':' }] },
 						{ tag: 'input', id: login_password, placeholder: "Password", type: 'password' }
 					]
 				},
@@ -62,14 +62,16 @@ export function createLoginUI() {
 function createNewAnonymousAccount(e) {
 	const username = document.getElementById(login_username);
 	const password = document.getElementById(login_password);
+	const elem = e.target;
 	const cancel = "Cancel";
-	if (e.target.textContent == cancel) {
+
+	if (elem.dataset.i18nText == cancel) {
 		username.value = '';
 		password.value = '';
 		username.readOnly = false;
 		password.readOnly = false;
 		password.type = 'password'; // hide password
-		e.target.textContent = new_account_txt;
+		updateElement(elem, { text: new_account_txt });
 	}
 	else {
 		username.value = 'ANO';
@@ -77,7 +79,7 @@ function createNewAnonymousAccount(e) {
 		username.readOnly = true;
 		password.readOnly = true;
 		password.type = 'text'; // show password
-		e.target.textContent = cancel;
+		updateElement(elem, { text: cancel });
 	}
 }
 
@@ -86,7 +88,7 @@ function handleLogin() {
 	const password = document.getElementById(login_password).value.trim();
 
 	if (!username || !password) {
-		toast('Username and password are required');
+		toast("Username and password are required");
 		return;
 	}
 
@@ -100,7 +102,9 @@ function handleLogin() {
 			if (response.ok) {
 				window.isAuthenticated = true;
 				document.getElementById('login-container').remove();
-				initializeApp();
+
+				fetchMessages();
+				setInterval(fetchMessages, 4000);
 			}
 			else showProblemDetail(response);
 		});
@@ -108,13 +112,18 @@ function handleLogin() {
 
 // Initialize the chat application
 export function initializeApp() {
-	if (window.isAuthenticated) {
-		// Start normal chat flow
-		fetchMessages();
-		setInterval(fetchMessages, 4000);
-	} else {
-		createLoginUI();
-	}
+	setup().then(() => {
+		initializeElements();
+
+		if (window.isAuthenticated) {
+			// Start normal chat flow
+			fetchMessages();
+			setInterval(fetchMessages, 4000);
+		}
+		else {
+			createLoginUI();
+		}
+	});
 
 	// Make the body height match the visual viewport height
 	window.visualViewport.addEventListener('resize', () => {

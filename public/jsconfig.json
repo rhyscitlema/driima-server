@@ -1,0 +1,25 @@
+{
+	"compilerOptions": {
+		"baseUrl": ".",
+		"paths": {
+			"login": [
+				"js/login.js"
+			],
+			"chat": [
+				"js/chat.js"
+			],
+			"spart": [
+				"lib/spart/spart.js"
+			],
+			"fetch": [
+				"lib/spart/fetch.js"
+			],
+			"i18n": [
+				"lib/spart/i18n.js"
+			]
+		}
+	},
+	"include": [
+		"./**/*.js"
+	]
+}

@@ -1,0 +1,18 @@
+{
+	"Login": "Se connecter",
+	"Create an anonymous account": "Créer un compte anonyme",
+	"Username": "Nom d'utilisateur",
+	"Password": "Mot de passe",
+	"Cancel": "Annuler",
+	"Delete": "Supprimer",
+	"Copy": "Copier",
+	"Send": "Envoyer",
+	"Reply": "Répondre",
+	"Type a message": "Tapez un message",
+	"Hide from AI": "Masquer à l’IA",
+	"AI is busy responding, please wait": "L’IA est en train de répondre, veuillez patienter",
+	"All prior messages will be skipped": "Tous les messages précédents, y compris celui-ci, seront ignorés par l’IA lors de la réponse à un message.",
+	"Username and password are required": "Nom d’utilisateur et mot de passe requis",
+	"Please check your internet connection": "Veuillez vérifier votre connexion Internet",
+	"An error has occurred": "Une erreur s’est produite"
+}

@@ -1,5 +1,6 @@
-import { toast, createElement, createSVGElement } from 'spart';
+import { toast, createElement, updateElement, createSVGElement } from 'spart';
 import { _fetch, apiFetch, showProblemDetail } from 'fetch';
+import { tl, currentLanguage, changeLanguage } from 'i18n';
 
 const urlParams = new URLSearchParams(window.location.search);
 const groupId = +(urlParams.get('g') || "0");
@@ -18,7 +19,7 @@ let replyPreview = null;
 let replyText = null;
 let cancelReplyBtn = null;
 
-function initializeElements() {
+export function initializeElements() {
 	if (chatContainer)
 		return; // Already initialized
 
@@ -32,6 +33,13 @@ function initializeElements() {
 	// Event listeners
 	sendBtn.addEventListener("click", sendMessage);
 	cancelReplyBtn.addEventListener("click", cancelReply);
+
+	updateElement(messageInput, { placeholder: "Type a message" });
+	updateElement(sendBtn, { text: "Send" });
+
+	const language = document.getElementById("language");
+	language.value = currentLanguage;
+	language.addEventListener('change', (e) => changeLanguage(e.target.value));
 }
 
 // Fetch messages from the API
@@ -39,7 +47,6 @@ let fetching = false;
 let isonline = true; // Assume online initially
 
 export function fetchMessages() {
-	initializeElements();
 	if (fetching) return;
 	fetching = true;
 
@@ -177,7 +184,7 @@ function onHideFromAI(message, e) {
 
 	if (!localStorage.firstHideFromAI) {
 		localStorage.firstHideFromAI = Date.now();
-		alert("All messages prior to and including this one will be skipped by AI when responding to a message.");
+		alert(tl("All prior messages will be skipped"));
 	}
 
 	const url = "/api/message/hide-from-ai?id=" + message.id;
