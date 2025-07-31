@@ -1,7 +1,7 @@
 Require all granted
 
 <IfModule mod_headers.c>
-	<FilesMatch "\.(jpg|jpeg|png|gif|css|js|ico)$">
+	<FilesMatch "\.(jpg|jpeg|png|gif|css|js|json|ico)$">
 		Header set Cache-Control "max-age=31536000, public"
 	</FilesMatch>
 </IfModule>

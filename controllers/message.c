@@ -540,7 +540,7 @@ void register_message_controller()
 	CHECK_ERRNO;
 	add_endpoint(M_GET, "/home/index", home_index, 0);
 	add_endpoint(M_GET, "/anonymous/chat", anonymous_chat, 0);
-	add_endpoint(M_GET, "/api/message/many", get_messages, Endpoint_IsaWebAPI);
+	add_endpoint(M_GET, "/api/message/many", get_messages, Endpoint_AuthWebAPI);
 	add_endpoint(M_POST, "/api/message/send", send_message, Endpoint_AuthWebAPI);
 	add_endpoint(M_DELETE, "/api/message/delete", delete_message, Endpoint_AuthWebAPI);
 	add_endpoint(M_PATCH, "/api/message/hide-from-ai", hide_message_from_ai, Endpoint_AuthWebAPI);

@@ -29,7 +29,7 @@ export function createLoginUI() {
 					tag: 'div', class: 'form-group',
 					content: [
 						{ tag: 'label', for: login_username, content: [{ text: 'Username' }, { text: ':' }] },
-						{ tag: 'input', id: login_username, placeholder: "Username" }
+						{ tag: 'input', id: login_username, placeholder: "Username", props: { autofocus: "true" } }
 					]
 				},
 				{
