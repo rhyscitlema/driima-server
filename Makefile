@@ -72,7 +72,7 @@ PUB_FILE = $(OUT_DIR)publish.tar.gz
 publish: $(PUB_FILE)
 
 $(PUB_FILE): $(VALID)
-	tar -czf $(PUB_FILE) $(SO_FILE) public views migrations ai i18n .htaccess settings.json
+	tar -czhf $(PUB_FILE) $(SO_FILE) --exclude=.git public views migrations ai i18n .htaccess settings.json
 	scp $(PUB_FILE) vps:
 
 start: $(VALID)
