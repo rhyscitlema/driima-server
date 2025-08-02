@@ -28,14 +28,14 @@ export function createLoginUI() {
 				{
 					tag: 'div', class: 'form-group',
 					content: [
-						{ tag: 'label', for: login_username, content: [{ text: 'Username' }, { text: ':' }] },
+						{ tag: 'label', for: login_username, content: [{ tag: 'span', text: 'Username' }, { text: ':' }] },
 						{ tag: 'input', id: login_username, placeholder: "Username", props: { autofocus: "true" } }
 					]
 				},
 				{
 					tag: 'div', class: 'form-group',
 					content: [
-						{ tag: 'label', for: login_password, content: [{ text: 'Password' }, { text: ':' }] },
+						{ tag: 'label', for: login_password, content: [{ tag: 'span', text: 'Password' }, { text: ':' }] },
 						{ tag: 'input', id: login_password, placeholder: "Password", type: 'password' }
 					]
 				},
@@ -47,8 +47,7 @@ export function createLoginUI() {
 							events: { 'click': handleLogin }
 						},
 						{
-							tag: 'button', id: 'create-anonymous-btn',
-							text: new_account_txt,
+							tag: 'button', id: 'create-anonymous-btn', text: new_account_txt,
 							events: { 'click': createNewAnonymousAccount }
 						}
 					]

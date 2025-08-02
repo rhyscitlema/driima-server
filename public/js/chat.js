@@ -115,14 +115,25 @@ function deletedMessage(message) {
 	return !message || !message.content;
 }
 
-function getSnippet(messageId) {
+function setReplySnippet(elem, messageId) {
 	const message = messagesMap[messageId];
-	if (deletedMessage(message))
-		return "Replying to a deleted message";
+	if (deletedMessage(message)) {
+		updateElement(elem, { text: "Reply to a deleted message" });
+		return;
+	}
 
 	const maxLength = 127;
-	const content = message.content.length > maxLength ? message.content.slice(0, maxLength) + "..." : message.content;
-	return message.senderName + ": " + content;
+	let content = message.content;
+	if (content.length > maxLength)
+		content = content.slice(0, maxLength) + "...";
+
+	const sender = message.senderName;
+	updateElement(elem, {
+		content: [
+			{ text: sender, tag: isAI(sender) ? 'span' : null },
+			{ text: ": " + content }
+		]
+	});
 }
 
 function onReplySnippet(message) {
@@ -131,15 +142,19 @@ function onReplySnippet(message) {
 		elem.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
+function isAI(name) {
+	return name == 'AI' || name == 'IA';
+}
+
 function onReplyButton(message) {
 	parentId = message.id;
-	replyText.textContent = getSnippet(message.id);
+	setReplySnippet(replyText, message.id);
 	replyPreview.classList.remove("hidden");
 
 	if (!messageInput.value) {
 		const sender = message.senderName;
-		if (sender == 'AI' || sender == 'IA')
-			messageInput.value = '@' + sender + ' ';
+		if (isAI(sender))
+			messageInput.value = '@' + tl(sender) + ' ';
 	}
 	messageInput.focus();
 }
@@ -222,7 +237,7 @@ function sentOrCausedByMe(message) {
 		if (message.sentByMe)
 			return true;
 
-		if (message.senderName != "AI" || !message.parentId)
+		if (!isAI(message.senderName) || !message.parentId)
 			break;
 
 		message = messagesMap[message.parentId];
@@ -293,8 +308,8 @@ function appendMessage(message) {
 			(
 				message.parentId && {
 					tag: 'div', class: 'reply-snippet',
-					text: getSnippet(message.parentId),
-					events: { 'click': () => onReplySnippet(message) }
+					events: { 'click': () => onReplySnippet(message) },
+					callback: (elem) => setReplySnippet(elem, message.parentId),
 				}
 			),
 			{

@@ -1,4 +1,5 @@
 {
+	"AI": "IA",
 	"Login": "Se connecter",
 	"Create an anonymous account": "Créer un compte anonyme",
 	"Username": "Nom d'utilisateur",
@@ -14,5 +15,6 @@
 	"All prior messages will be skipped": "Tous les messages précédents, y compris celui-ci, seront ignorés par l’IA lors de la réponse à un message.",
 	"Username and password are required": "Nom d’utilisateur et mot de passe requis",
 	"Please check your internet connection": "Veuillez vérifier votre connexion Internet",
+	"Reply to a deleted message": "Réponse à un message supprimé",
 	"An error has occurred": "Une erreur s’est produite"
 }
