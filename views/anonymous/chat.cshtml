@@ -42,18 +42,21 @@
 	}
 	</script>
 	<script type="module">
-		import { initializeApp } from 'login';
-		document.addEventListener('DOMContentLoaded', initializeApp);
-	</script>
-	<script>
 		@if (User.Id != undefined)
 		{
-			window.isAuthenticated = true;
+		window.isAuthenticated = true;
 		}
+		import { initializeApp } from 'login';
+
+		document.addEventListener('DOMContentLoaded', async () => {
+			await initializeApp();
+			document.getElementById("app-loading-indicator")?.remove();
+		});
 	</script>
 </head>
 
 <body>
+	<div id="app-loading-indicator" class="loading-spinner"></div>
 	<div id="chat-header">
 		<span>@Page.HeadTitle</span>
 		<select id="language">

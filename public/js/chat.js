@@ -46,43 +46,49 @@ export function initializeElements() {
 let fetching = false;
 let isonline = true; // Assume online initially
 
-export function fetchMessages() {
+export async function fetchMessages() {
 	if (fetching) return;
 	fetching = true;
 
 	let url = `/api/message/many?groupId=${groupId}&joinKey=${joinKey}`;
 	url += '&lastMessageDateSent=' + lastMessageDateSent;
 
-	return _fetch(url).then((response) => {
-		if (!response.ok) {
-			if (response.status) {
-				showProblemDetail(response);
-			}
-			else if (isonline) {
-				isonline = false;
-				toast('Please check your internet connection');
-			}
-			fetching = false;
-			return;
-		}
-		// process the successful response
-		return response.json().then(content => {
-			if (content.messages.length > 0) {
-				content.messages.forEach(message => {
-					// Store message for re-use
-					messagesMap[message.id] = message;
-					appendMessage(message);
+	const response = await _fetch(url);
 
-					if (message.dateSent > lastMessageDateSent) {
-						lastMessageDateSent = message.dateSent;
-					}
-				});
-				scrollToBottom();
+	if (!response.status) {
+		if (isonline) {
+			isonline = false;
+			showProblemDetail(response);
+		}
+		fetching = false;
+		return;
+	}
+	isonline = true;
+
+	if (!response.ok) {
+		showProblemDetail(response);
+		fetching = false;
+		return;
+	}
+
+	// process the successful response
+	const content = await response.json();
+
+	if (content.messages.length > 0) {
+		content.messages.forEach(message => {
+			// Store message
+			messagesMap[message.id] = message;
+			appendMessage(message);
+
+			if (message.dateSent > lastMessageDateSent) {
+				lastMessageDateSent = message.dateSent;
 			}
-			changeSkippedMessage(content.skippedMessageId);
-			fetching = false;
 		});
-	});
+		scrollToBottom();
+	}
+
+	changeSkippedMessage(content.skippedMessageId);
+	fetching = false;
 }
 
 /**

@@ -83,7 +83,7 @@ function createNewAnonymousAccount(e) {
 	}
 }
 
-function handleLogin() {
+async function handleLogin() {
 	const username = document.getElementById(login_username).value.trim();
 	const password = document.getElementById(login_password).value.trim();
 
@@ -97,36 +97,27 @@ function handleLogin() {
 		['password', password]
 	]);
 
-	sendParams("/api/account/login", "POST", params)
-		.then(response => {
-			if (response.ok) {
-				window.isAuthenticated = true;
-				document.getElementById('login-container').remove();
+	const response = await sendParams("/api/account/login", "POST", params);
+	if (response.ok) {
+		window.isAuthenticated = true;
+		document.getElementById('login-container').remove();
 
-				fetchMessages();
-				setInterval(fetchMessages, 4000);
-			}
-			else showProblemDetail(response);
-		});
+		setInterval(fetchMessages, 4000);
+		await fetchMessages();
+	}
+	else showProblemDetail(response);
 }
 
 // Initialize the chat application
-export function initializeApp() {
-	setup().then(() => {
-		initializeElements();
+export async function initializeApp() {
+	await setup({ isProgressiveWebApp: true });
 
-		if (window.isAuthenticated) {
-			// Start normal chat flow
-			fetchMessages();
-			setInterval(fetchMessages, 4000);
-		}
-		else {
-			createLoginUI();
-		}
-	});
+	initializeElements();
 
-	// Make the body height match the visual viewport height
-	window.visualViewport.addEventListener('resize', () => {
-		document.body.style.height = `${window.visualViewport.height}px`;
-	});
+	if (window.isAuthenticated) {
+		// Start the normal chat flow
+		setInterval(fetchMessages, 4000);
+		await fetchMessages();
+	}
+	else createLoginUI();
 }
