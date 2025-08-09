@@ -22,6 +22,8 @@
 		<meta name="description" content="@og.Description">
 	}
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="theme-color" content="#075e54">
+	<link rel="manifest" href="/manifest.json">
 	<link rel="stylesheet" href="/lib/prism/prism.css">
 	<link rel="stylesheet" href="/lib/spart/spart.css">
 	<link rel="stylesheet" href="/css/login.css?v=1.1">
@@ -51,6 +53,12 @@
 		document.addEventListener('DOMContentLoaded', async () => {
 			await initializeApp();
 			document.getElementById("app-loading-indicator")?.remove();
+
+			if ('serviceWorker' in navigator) {
+				await navigator.serviceWorker.register("/sw.js")
+					.then(reg => console.debug("Service Worker registered"))
+					.catch(err => console.error("SW registration failed:", err));
+			}
 		});
 	</script>
 </head>

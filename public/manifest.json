@@ -1,0 +1,28 @@
+{
+	"short_name": "DRIIMA",
+	"name": "Distributed, Reliable and Intelligent Instant Messaging App",
+	"description": "Seamlessly bring your real life conversation experiences online. Keep in touch with the people you know with as much energy as you would when close.",
+	"start_url": "/anonymous/chat?g=1",
+	"id": "/?pwa=1",
+	"display": "standalone",
+	"background_color": "white",
+	"theme_color": "#075e54",
+	"gcm_sender_id": "103953800507",
+	"icons": [
+		{
+			"src": "/favicon.ico",
+			"sizes": "16x16 32x32 48x48 64x64",
+			"type": "image/x-icon"
+		},
+		{
+			"src": "/icons/logo-192x192.png",
+			"sizes": "192x192",
+			"type": "image/png"
+		},
+		{
+			"src": "/icons/logo-512x512.png",
+			"sizes": "512x512",
+			"type": "image/png"
+		}
+	]
+}
