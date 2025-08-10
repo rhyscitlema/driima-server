@@ -23,6 +23,31 @@ export function initializeElements() {
 	if (chatContainer)
 		return; // Already initialized
 
+	const html = `
+		<div id="chat-header">
+			<span>${document.title}</span>
+			<select id="language">
+				<option hidden></option>
+				<option value="en">EN</option>
+				<option value="fr">FR</option>
+			</select>
+		</div>
+		<div id="chat-container">
+		</div>
+		<div id="chat-footer">
+			<div id="reply-preview" class="hidden">
+				<span id="reply-text"></span>
+				<button id="cancel-reply">✕</button>
+			</div>
+			<div id="input-area">
+				<textarea id="message-input" rows="3"></textarea>
+				<button id="send-btn"></button>
+			</div>
+		</div>`;
+
+	const main = createElement({ tag: 'main', html });
+	document.body.appendChild(main);
+
 	chatContainer = document.getElementById("chat-container");
 	messageInput = document.getElementById("message-input");
 	sendBtn = document.getElementById("send-btn");
