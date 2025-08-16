@@ -1,6 +1,6 @@
 import { initializeElements, fetchMessages } from 'chat';
 import { setup, toast, createElement, updateElement } from 'spart';
-import { sendParams, showProblemDetail } from 'fetch';
+import { isAuthenticated, sendParams, showProblemDetail } from 'fetch';
 
 function generateGUID() {
 	return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, c =>
@@ -98,7 +98,6 @@ async function handleLogin() {
 
 	const response = await sendParams("/api/account/login", "POST", params);
 	if (response.ok) {
-		window.isAuthenticated = true;
 		document.getElementById('login-container').remove();
 
 		setInterval(fetchMessages, 4000);
@@ -113,7 +112,7 @@ export async function initializeApp() {
 
 	initializeElements();
 
-	if (window.isAuthenticated) {
+	if (isAuthenticated()) {
 		// Start the normal chat flow
 		setInterval(fetchMessages, 4000);
 		await fetchMessages();
