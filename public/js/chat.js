@@ -116,26 +116,6 @@ export async function fetchMessages() {
 	fetching = false;
 }
 
-/**
- * Set the inner HTML of a div element with sanitized markdown content
- * @param {HTMLDivElement} divElement
- * @param {object} markdownResponse
- */
-function setMessageContent(divElement, message) {
-
-	// Convert the markdown to HTML using marked.js
-	let html = marked.parse(message.content);
-
-	// Sanitize the HTML output using DOMPurify for security
-	html = DOMPurify.sanitize(html);
-
-	// Render the safe HTML into your chat output element
-	divElement.innerHTML = html;
-
-	const codeBlocks = divElement.querySelectorAll('code[class^="language-"]');
-	codeBlocks.forEach(codeBlock => Prism.highlightElement(codeBlock));
-}
-
 function deletedMessage(message) {
 	return !message || !message.content;
 }
@@ -339,7 +319,7 @@ function appendMessage(message) {
 			),
 			{
 				tag: 'div', class: 'content',
-				callback: (elem) => setMessageContent(elem, message)
+				callback: (elem) => convertMarkdownText(elem, message.content)
 			},
 			{
 				tag: 'div', class: 'message-footer',

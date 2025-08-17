@@ -11,6 +11,7 @@ const appAssets = [
 	"/lib/spart/i18n.js",
 	"/lib/dompurify/purify.min.js",
 	"/lib/marked/marked.min.js",
+	"/lib/marked/helpers.js",
 	"/lib/prism/prism.js",
 	"/lib/prism/prism.css",
 	"/css/login.css",
