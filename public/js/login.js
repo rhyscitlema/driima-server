@@ -1,6 +1,7 @@
-import { initializeElements, fetchMessages } from 'chat';
+import { openChatPage, fetchMessages } from 'chat';
 import { setup, toast, createElement, updateElement } from 'spart';
 import { isAuthenticated, sendParams, showProblemDetail } from 'fetch';
+import { openPage } from 'pages';
 
 function generateGUID() {
 	return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, c =>
@@ -17,7 +18,13 @@ const login_username = 'login-username';
 const login_password = 'login-password';
 const new_account_txt = 'Create an anonymous account';
 
-export function createLoginUI() {
+export function openLoginPage() {
+	const page = openPage('login');
+
+	if (page.childElementCount) {
+		return;
+	}
+
 	const loginContainer = createElement({
 		tag: 'div', id: 'login-container',
 		events: { 'keypress': onKeyPressed },
@@ -55,7 +62,7 @@ export function createLoginUI() {
 			]
 		}]
 	});
-	document.body.appendChild(loginContainer);
+	page.appendChild(loginContainer);
 }
 
 function createNewAnonymousAccount(e) {
@@ -98,10 +105,7 @@ async function handleLogin() {
 
 	const response = await sendParams("/api/account/login", "POST", params);
 	if (response.ok) {
-		document.getElementById('login-container').remove();
-
-		setInterval(fetchMessages, 4000);
-		await fetchMessages();
+		await openChatPage();
 	}
 	else showProblemDetail(response);
 }
@@ -110,12 +114,8 @@ async function handleLogin() {
 export async function initializeApp() {
 	await setup({ isProgressiveWebApp: true });
 
-	initializeElements();
-
 	if (isAuthenticated()) {
-		// Start the normal chat flow
-		setInterval(fetchMessages, 4000);
-		await fetchMessages();
+		await openChatPage();
 	}
-	else createLoginUI();
+	else openLoginPage();
 }

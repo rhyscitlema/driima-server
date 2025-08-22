@@ -10,7 +10,7 @@ body {
 	font-family: Arial, sans-serif;
 }
 
-main {
+.spa-page[name="chat"] {
 	display: flex;
 	flex-direction: column;
 }

@@ -1,6 +1,7 @@
 import { toast, createElement, updateElement, createSVGElement } from 'spart';
 import { _fetch, apiFetch, showProblemDetail } from 'fetch';
 import { tl, currentLanguage, changeLanguage } from 'i18n';
+import { openPage } from 'pages';
 
 const urlParams = new URLSearchParams(window.location.search);
 const groupId = +(urlParams.get('g') || "0");
@@ -19,9 +20,12 @@ let replyPreview = null;
 let replyText = null;
 let cancelReplyBtn = null;
 
-export function initializeElements() {
-	if (chatContainer)
-		return; // Already initialized
+export function openChatPage() {
+	const page = openPage("chat");
+
+	if (page.childElementCount) {
+		return;
+	}
 
 	const html = `
 		<div id="chat-header">
@@ -44,9 +48,7 @@ export function initializeElements() {
 				<button id="send-btn"></button>
 			</div>
 		</div>`;
-
-	const main = createElement({ tag: 'main', html });
-	document.body.appendChild(main);
+	page.innerHTML = html;
 
 	chatContainer = document.getElementById("chat-container");
 	messageInput = document.getElementById("message-input");
@@ -65,6 +67,9 @@ export function initializeElements() {
 	const language = document.getElementById("language");
 	language.value = currentLanguage;
 	language.addEventListener('change', (e) => changeLanguage(e.target.value));
+
+	setInterval(fetchMessages, 4000);
+	return fetchMessages();
 }
 
 // Fetch messages from the API

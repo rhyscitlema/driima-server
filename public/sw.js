@@ -8,6 +8,7 @@ const appAssets = [
 	"/lib/spart/spart.css",
 	"/lib/spart/spart.js",
 	"/lib/spart/fetch.js",
+	"/lib/spart/pages.js",
 	"/lib/spart/i18n.js",
 	"/lib/dompurify/purify.min.js",
 	"/lib/marked/marked.min.js",
