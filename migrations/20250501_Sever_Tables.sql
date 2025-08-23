@@ -35,7 +35,7 @@ CREATE TABLE GroupMembers (
 	MemberId BIGINT NOT NULL,
 	DateAdded TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	DateUpdated TIMESTAMP NULL,
-	Status INT NOT NULL DEFAULT 1, -- Unknown, Active, Deleted, Blocked, Exited
+	Status INT NOT NULL DEFAULT 1, -- Unknown, Active, Exited, Blocked
 	UNIQUE KEY UQ_GroupMembers_GroupId_MemberId (GroupId, MemberId),
 	FOREIGN KEY (GroupId) REFERENCES `Groups`(Id) ON DELETE CASCADE,
 	FOREIGN KEY (MemberId) REFERENCES Users(Id) ON DELETE CASCADE
