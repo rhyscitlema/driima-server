@@ -1,7 +1,7 @@
 importScripts("/lib/spart/sw-caching.js");
 
 const appAssets = [
-	"/anonymous/chat?g=1",
+	"/chat",
 	"/favicon.ico",
 	"/icons/logo-192x192.png",
 	"/icons/logo-512x512.png",

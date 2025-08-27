@@ -105,10 +105,17 @@ async function handleLogin() {
 
 	const response = await sendParams("/api/account/login", "POST", params);
 	if (response.ok) {
-		await openHomePage();
-		await openChatPage();
+		await onAuthenticated();
 	}
 	else showProblemDetail(response);
+}
+
+async function onAuthenticated() {
+	await openHomePage();
+
+	const params = new URLSearchParams(window.location.search);
+	if (params.get("g") || params.get("r"))
+		await openChatPage(params);
 }
 
 // Initialize the chat application
@@ -116,8 +123,7 @@ export async function initializeApp() {
 	await setup({ isProgressiveWebApp: true });
 
 	if (isAuthenticated()) {
-		await openHomePage();
-		await openChatPage();
+		await onAuthenticated();
 	}
 	else openLoginPage();
 }

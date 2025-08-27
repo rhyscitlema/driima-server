@@ -2,7 +2,7 @@
 	"short_name": "DRIIMA",
 	"name": "Distributed, Reliable and Intelligent Instant Messaging App",
 	"description": "Seamlessly bring your real life conversation experiences online. Keep in touch with the people you know with as much energy as you would when close.",
-	"start_url": "/anonymous/chat?g=1",
+	"start_url": "/chat",
 	"id": "/?pwa=1",
 	"display": "standalone",
 	"background_color": "white",

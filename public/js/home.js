@@ -5,12 +5,13 @@ import { toast, createElement, updateElement } from 'spart';
 import { _fetch, sendData, showProblemDetail } from 'fetch';
 
 function roomSelected(e) {
-	const r = e.target.dataset;
-	openChatPage({ roomId: r.id, roomName: r.name });
+	const params = new URLSearchParams();
+	params.set("g", e.target.dataset.id);
+	openChatPage(params);
 };
 
 async function fetchRooms(container) {
-	const response = await _fetch("/api/room/all");
+	const response = await _fetch("/api/rooms");
 
 	if (!response.ok) {
 		showProblemDetail(response);
@@ -23,7 +24,6 @@ async function fetchRooms(container) {
 		tag: "div",
 		class: "chat-room",
 		"data-id": x.roomId,
-		"data-name": x.groupName,
 		content: [{ text: x.groupName }],
 		events: { "click": roomSelected }
 	}));
@@ -32,7 +32,7 @@ async function fetchRooms(container) {
 }
 
 export default function openHomePage() {
-	const page = openPage('login', { level: 1 });
+	const page = openPage('home', { level: 1 });
 	if (page.childElementCount)
 		return;
 	page.classList.add("flex-column");
@@ -54,7 +54,8 @@ export default function openHomePage() {
 			]
 		},
 		{
-			tag: "div", class: "page-content", text: "Loading...",
+			tag: "div", class: "page-content",
+			content: [{ text: "Loading..." }],
 			callback: (elem) => fetchRooms(elem)
 		}
 	];

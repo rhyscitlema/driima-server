@@ -71,5 +71,5 @@ static apr_status_t get_rooms(HttpContext *c)
 void register_room_controller()
 {
 	CHECK_ERRNO;
-	add_endpoint(M_GET, "/api/room/all", get_rooms, Endpoint_AuthWebAPI);
+	add_endpoint(M_GET, "/api/rooms", get_rooms, Endpoint_AuthWebAPI);
 }

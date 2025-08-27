@@ -3,9 +3,8 @@ import { _fetch, sendData, showProblemDetail } from 'fetch';
 import { tl } from 'i18n';
 import { openPage, popPage } from 'pages';
 
-const urlParams = new URLSearchParams(window.location.search);
-const groupId = +(urlParams.get('g') || "0");
-const joinKey = +(urlParams.get('k') || "0");
+let groupId = 0;
+let joinKey = 0;
 
 // Global variables
 let lastMessageDateSent = '';
@@ -23,7 +22,11 @@ function getElemByClass(parent, className) {
 	return parent.getElementsByClassName(className)[0];
 }
 
-export default function openChatPage() {
+export default function openChatPage(params) {
+	if (params) {
+		groupId = +(params.get('g') || "0");
+		joinKey = +(params.get('k') || "0");
+	}
 	const page = openPage("chat");
 
 	if (page.childElementCount) {
@@ -82,7 +85,7 @@ async function fetchMessages() {
 	if (fetching) return;
 	fetching = true;
 
-	let url = `/api/message/many?groupId=${groupId}&joinKey=${joinKey}`;
+	let url = `/api/messages?groupId=${groupId}&joinKey=${joinKey}`;
 	url += '&lastMessageDateSent=' + lastMessageDateSent;
 
 	const response = await _fetch(url);

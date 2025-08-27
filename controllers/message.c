@@ -489,15 +489,24 @@ static apr_status_t hide_message_from_ai(HttpContext *c)
 	return HTTP_NO_CONTENT;
 }
 
-static apr_status_t anonymous_chat(HttpContext *c)
+static apr_status_t chat_page(HttpContext *c)
 {
-	int groupId = 0, joinKey = 0;
+	c->constants.layout_file = NO_LAYOUT_FILE;
+
+	int roomId = 0, groupId = 0, joinKey = 0;
 
 	KeyValuePair x;
 	while ((x = get_next_url_query_argument(&c->request_args, '&', true)).key != NULL)
 	{
+		KVP_TO_INT(x, roomId, "r")
 		KVP_TO_INT(x, groupId, "g")
 		KVP_TO_INT(x, joinKey, "k")
+	}
+
+	if (roomId == 0 && groupId == 0)
+	{
+		set_page_title(c, "DRIIMA");
+		return process_view(c);
 	}
 
 	char buffer[1024];
@@ -524,21 +533,20 @@ static apr_status_t anonymous_chat(HttpContext *c)
 	JsonObject *page = json_get_node(c->view_model, "Page");
 	json_put_node(page, "OpenGraph", og, 0);
 
-	c->constants.layout_file = NO_LAYOUT_FILE;
 	return process_view(c);
 }
 
-static apr_status_t home_index(HttpContext *c)
+static apr_status_t home_page(HttpContext *c)
 {
-	return http_redirect(c, "/anonymous/chat?g=1");
+	return http_redirect(c, "/chat");
 }
 
 void register_message_controller()
 {
 	CHECK_ERRNO;
-	add_endpoint(M_GET, "/home/index", home_index, 0);
-	add_endpoint(M_GET, "/anonymous/chat", anonymous_chat, 0);
-	add_endpoint(M_GET, "/api/message/many", get_messages, Endpoint_AuthWebAPI);
+	add_endpoint(M_GET, "/", home_page, 0);
+	add_endpoint(M_GET, "/chat", chat_page, 0);
+	add_endpoint(M_GET, "/api/messages", get_messages, Endpoint_AuthWebAPI);
 	add_endpoint(M_POST, "/api/message/send", send_message, Endpoint_AuthWebAPI);
 	add_endpoint(M_DELETE, "/api/message/delete", delete_message, Endpoint_AuthWebAPI);
 	add_endpoint(M_PATCH, "/api/message/hide-from-ai", hide_message_from_ai, Endpoint_AuthWebAPI);
