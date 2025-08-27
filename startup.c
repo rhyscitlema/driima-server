@@ -5,6 +5,7 @@ static void register_controllers()
 {
 	register_account_controller();
 	register_message_controller();
+	register_room_controller();
 	register_file_upload_controller();
 }
 

@@ -1,7 +1,7 @@
 import { toast, createElement, updateElement, createSVGElement } from 'spart';
-import { _fetch, apiFetch, showProblemDetail } from 'fetch';
-import { tl, currentLanguage, changeLanguage } from 'i18n';
-import { openPage } from 'pages';
+import { _fetch, sendData, showProblemDetail } from 'fetch';
+import { tl } from 'i18n';
+import { openPage, popPage } from 'pages';
 
 const urlParams = new URLSearchParams(window.location.search);
 const groupId = +(urlParams.get('g') || "0");
@@ -15,28 +15,28 @@ const messagesMap = {}; // messages stored by id for re-use
 // DOM elements
 let chatContainer = null;
 let messageInput = null;
-let sendBtn = null;
 let replyPreview = null;
 let replyText = null;
-let cancelReplyBtn = null;
+let timerId = 0;
 
-export function openChatPage() {
+function getElemByClass(parent, className) {
+	return parent.getElementsByClassName(className)[0];
+}
+
+export default function openChatPage() {
 	const page = openPage("chat");
 
 	if (page.childElementCount) {
 		return;
 	}
+	page.classList.add("flex-column");
 
 	const html = `
-		<div id="chat-header">
+		<div class="page-header">
+			<button class="back-btn">Back </button>
 			<span>${document.title}</span>
-			<select id="language">
-				<option hidden></option>
-				<option value="en">EN</option>
-				<option value="fr">FR</option>
-			</select>
 		</div>
-		<div id="chat-container">
+		<div class="page-content">
 		</div>
 		<div id="chat-footer">
 			<div id="reply-preview" class="hidden">
@@ -50,12 +50,12 @@ export function openChatPage() {
 		</div>`;
 	page.innerHTML = html;
 
-	chatContainer = document.getElementById("chat-container");
+	chatContainer = getElemByClass(page, "page-content");
 	messageInput = document.getElementById("message-input");
-	sendBtn = document.getElementById("send-btn");
+	let sendBtn = document.getElementById("send-btn");
 	replyPreview = document.getElementById("reply-preview");
 	replyText = document.getElementById("reply-text");
-	cancelReplyBtn = document.getElementById("cancel-reply");
+	let cancelReplyBtn = document.getElementById("cancel-reply");
 
 	// Event listeners
 	sendBtn.addEventListener("click", sendMessage);
@@ -64,11 +64,13 @@ export function openChatPage() {
 	updateElement(messageInput, { placeholder: "Type a message" });
 	updateElement(sendBtn, { text: "Send" });
 
-	const language = document.getElementById("language");
-	language.value = currentLanguage;
-	language.addEventListener('change', (e) => changeLanguage(e.target.value));
+	let backBtn = getElemByClass(page, "back-btn");
+	backBtn.addEventListener("click", () => {
+		clearInterval(timerId);
+		popPage();
+	});
 
-	setInterval(fetchMessages, 4000);
+	timerId = setInterval(fetchMessages, 4000);
 	return fetchMessages();
 }
 
@@ -76,7 +78,7 @@ export function openChatPage() {
 let fetching = false;
 let isonline = true; // Assume online initially
 
-export async function fetchMessages() {
+async function fetchMessages() {
 	if (fetching) return;
 	fetching = true;
 
@@ -177,7 +179,7 @@ function onDeleteMessage(message, e) {
 	quit_options(e);
 	if (confirm("Please confirm you want to delete")) {
 		const url = "/api/message/delete?id=" + message.id;
-		apiFetch(url, "DELETE").then((response) => {
+		_fetch(url, { method: "DELETE" }).then((response) => {
 			if (response.ok) {
 				const elem = document.getElementById(message.id);
 				elem.remove();
@@ -219,7 +221,7 @@ function onHideFromAI(message, e) {
 	}
 
 	const url = "/api/message/hide-from-ai?id=" + message.id;
-	apiFetch(url, "PATCH").then((response) => {
+	_fetch(url, { method: "PATCH" }).then((response) => {
 		if (response.ok)
 			changeSkippedMessage(message.id);
 		else showProblemDetail(response);
@@ -359,7 +361,7 @@ function sendMessage() {
 		parentId: parentId,
 		content: content
 	};
-	apiFetch('/api/message/send', 'POST', payload).then(response => {
+	sendData('/api/message/send', 'POST', payload).then(response => {
 		if (response.ok) {
 			// Clear input and reset reply state
 			messageInput.value = "";

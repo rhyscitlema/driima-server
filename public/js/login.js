@@ -1,7 +1,8 @@
-import { openChatPage, fetchMessages } from 'chat';
+import { openPage } from 'pages';
+import openHomePage from 'home';
+import openChatPage from 'chat';
 import { setup, toast, createElement, updateElement } from 'spart';
 import { isAuthenticated, sendParams, showProblemDetail } from 'fetch';
-import { openPage } from 'pages';
 
 function generateGUID() {
 	return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, c =>
@@ -19,11 +20,10 @@ const login_password = 'login-password';
 const new_account_txt = 'Create an anonymous account';
 
 export function openLoginPage() {
-	const page = openPage('login');
+	const page = openPage('login', { level: 1 });
 
-	if (page.childElementCount) {
+	if (page.childElementCount)
 		return;
-	}
 
 	const loginContainer = createElement({
 		tag: 'div', id: 'login-container',
@@ -105,6 +105,7 @@ async function handleLogin() {
 
 	const response = await sendParams("/api/account/login", "POST", params);
 	if (response.ok) {
+		await openHomePage();
 		await openChatPage();
 	}
 	else showProblemDetail(response);
@@ -115,6 +116,7 @@ export async function initializeApp() {
 	await setup({ isProgressiveWebApp: true });
 
 	if (isAuthenticated()) {
+		await openHomePage();
 		await openChatPage();
 	}
 	else openLoginPage();

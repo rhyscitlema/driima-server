@@ -65,7 +65,7 @@ static apr_status_t get_room_info(HttpContext *c, RoomInfo *room, char *buffer, 
 
 	if (sql_exec(&query, argv) != 0)
 	{
-		strcpy(buffer, tl("Internal error: failed to get room info"));
+		strcpy(buffer, tl("Internal error: failed to get data"));
 		status = HTTP_INTERNAL_SERVER_ERROR;
 		goto finish;
 	}
@@ -134,13 +134,12 @@ static apr_status_t get_messages(HttpContext *c)
 	int groupId = 0, joinKey = 0;
 	char *lastMessageDateSent = NULL;
 
-	KeyValuePair pair;
-	while ((pair = get_next_url_query_argument(&c->request_args, '&', true)).key != NULL)
+	KeyValuePair x;
+	while ((x = get_next_url_query_argument(&c->request_args, '&', true)).key != NULL)
 	{
-		IF_FALSE
-		PAIR_TO_INT(groupId, "groupId", pair)
-		PAIR_TO_INT(joinKey, "joinKey", pair)
-		PAIR_TO_STR(lastMessageDateSent, "lastMessageDateSent", pair)
+		KVP_TO_INT(x, groupId, "groupId")
+		KVP_TO_INT(x, joinKey, "joinKey")
+		KVP_TO_STR(x, lastMessageDateSent, "lastMessageDateSent")
 	}
 
 	char dateSent[DATE_STORE];
@@ -494,12 +493,11 @@ static apr_status_t anonymous_chat(HttpContext *c)
 {
 	int groupId = 0, joinKey = 0;
 
-	KeyValuePair pair;
-	while ((pair = get_next_url_query_argument(&c->request_args, '&', true)).key != NULL)
+	KeyValuePair x;
+	while ((x = get_next_url_query_argument(&c->request_args, '&', true)).key != NULL)
 	{
-		IF_FALSE
-		PAIR_TO_INT(groupId, "g", pair)
-		PAIR_TO_INT(joinKey, "k", pair)
+		KVP_TO_INT(x, groupId, "g")
+		KVP_TO_INT(x, joinKey, "k")
 	}
 
 	char buffer[1024];

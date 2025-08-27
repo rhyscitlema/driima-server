@@ -4,6 +4,7 @@ OUT_DIR = build/
 OBJECT_FILES =\
 	$(OUT_DIR)startup.o \
 	$(OUT_DIR)services/ai.o \
+	$(OUT_DIR)controllers/room.o \
 	$(OUT_DIR)controllers/account.o \
 	$(OUT_DIR)controllers/message.o
 

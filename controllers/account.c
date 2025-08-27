@@ -118,12 +118,11 @@ static apr_status_t login(HttpContext *c)
 
 	char *username = NULL, *password = NULL;
 
-	KeyValuePair pair;
-	while ((pair = get_next_url_query_argument(&c->request_body, '&', true)).key != NULL)
+	KeyValuePair x;
+	while ((x = get_next_url_query_argument(&c->request_body, '&', true)).key != NULL)
 	{
-		IF_FALSE
-		PAIR_TO_STR(username, "username", pair)
-		PAIR_TO_STR(password, "password", pair)
+		KVP_TO_STR(x, username, "username")
+		KVP_TO_STR(x, password, "password")
 	}
 
 	if (str_empty(username) || str_empty(password))

@@ -6,5 +6,6 @@
 
 void register_account_controller();
 void register_message_controller();
+void register_room_controller();
 
 #endif

@@ -8,7 +8,7 @@ ALTER TABLE `Groups` DROP COLUMN WallpaperImageId;
 ALTER TABLE `Rooms` ADD COLUMN WallpaperImageId BIGINT NULL;
 ALTER TABLE `Rooms` ADD FOREIGN KEY (WallpaperImageId) REFERENCES Files(Id) ON DELETE SET NULL;
 
-CREATE VIEW ViewRoms AS
+CREATE VIEW ViewRooms AS
 SELECT
 	gm.MemberId,
 	r.Id as RoomId,
@@ -20,6 +20,7 @@ SELECT
 	rm.DateMuted,
 	rm.DatePinned,
 	m.DateSent as LatestDateSent,
+	IF(m.DateDeleted IS NULL, LEFT(m.Content, 128), NULL) AS LatestMessage,
 	logo.Path as GroupLogo,
 	banner.Path as GroupBanner
 FROM Rooms as r

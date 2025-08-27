@@ -18,6 +18,7 @@ const appAssets = [
 	"/css/login.css",
 	"/css/chat.css",
 	"/js/login.js",
+	"/js/home.js",
 	"/js/chat.js",
 	"/js/svg.js",
 	"/i18n/fr.json",

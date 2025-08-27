@@ -5,6 +5,9 @@
 			"login": [
 				"js/login.js"
 			],
+			"home": [
+				"js/home.js"
+			],
 			"chat": [
 				"js/chat.js"
 			],
@@ -13,6 +16,9 @@
 			],
 			"fetch": [
 				"lib/spart/fetch.js"
+			],
+			"pages": [
+				"lib/spart/pages.js"
 			],
 			"i18n": [
 				"lib/spart/i18n.js"
