@@ -10,24 +10,29 @@ ALTER TABLE `Rooms` ADD FOREIGN KEY (WallpaperImageId) REFERENCES Files(Id) ON D
 
 CREATE VIEW ViewRooms AS
 SELECT
-	gm.MemberId,
-	r.Id as RoomId,
-	g.Id as GroupId,
+	r.Id,
+	r.GroupId,
 	r.Name as RoomName,
 	g.Name as GroupName,
 	g.Status as GroupStatus,
-	gm.Status as GroupMemberStatus,
-	rm.DateMuted,
-	rm.DatePinned,
 	m.DateSent as LatestDateSent,
 	IF(m.DateDeleted IS NULL, LEFT(m.Content, 128), NULL) AS LatestMessage,
 	logo.Path as GroupLogo,
 	banner.Path as GroupBanner
 FROM Rooms as r
 JOIN `Groups` as g on r.GroupId = g.Id
-LEFT JOIN GroupMembers as gm on gm.GroupId = g.Id
-LEFT JOIN RoomMembers as rm on r.GroupId = g.Id and rm.MemberId = gm.MemberId
 LEFT JOIN Messages as m on m.Id = r.LatestMessageId
 LEFT JOIN FilePaths as logo on logo.Id = g.LogoImageId
 LEFT JOIN FilePaths as banner on banner.Id = g.BannerImageId;
+
+CREATE VIEW ViewRoomMembers AS
+SELECT
+	r.Id as RoomId,
+	gm.MemberId,
+	gm.Status as MemberStatus,
+	rm.DateMuted,
+	rm.DatePinned
+FROM Rooms as r
+JOIN GroupMembers as gm on gm.GroupId = r.GroupId
+LEFT JOIN RoomMembers as rm on rm.RoomId = r.Id and rm.MemberId = gm.MemberId;
 

@@ -23,7 +23,7 @@ static errno_t get_rooms_callback(void *context, int argc, char **argv, char **c
 		json_kvp_string(room, x, "roomName");
 		json_kvp_string(room, x, "groupName");
 		json_kvp_number(room, x, "groupStatus");
-		json_kvp_number(room, x, "groupMemberStatus");
+		json_kvp_number(room, x, "memberStatus");
 		json_kvp_date_l(room, x, "dateMuted");
 		json_kvp_date_l(room, x, "datePinned");
 		json_kvp_date_l(room, x, "latestDateSent");
@@ -54,8 +54,10 @@ static apr_status_t get_rooms(HttpContext *c)
 	query.callback_context = &info;
 
 	query.sql =
-		"select * from ViewRooms where GroupId = 1 or MemberId = ?\n"
-		"order by LatestDateSent desc, GroupName asc";
+		"select * from ViewRooms as r\n"
+		"join ViewRoomMembers as rm on rm.RoomId = r.Id\n"
+		"where MemberId = ?\n"
+		"order by LatestDateSent desc, GroupName asc\n";
 
 	long userId = str_to_long(c->identity.sub);
 	JsonValue argv[1];
