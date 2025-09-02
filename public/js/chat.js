@@ -6,153 +6,14 @@ import { openPage, popPage } from 'pages';
 let groupId = 0;
 let joinKey = 0;
 
-// Global variables
-let lastMessageDateSent = '';
-let parentId = null;
-const messagesMap = {}; // messages stored by id for re-use
-
-// DOM elements
-let chatContainer = null;
-let messageInput = null;
-let replyPreview = null;
-let replyText = null;
-let timerId = 0;
-
-function getElemByClass(parent, className) {
-	return parent.getElementsByClassName(className)[0];
-}
-
-export default function openChatPage(params) {
-	if (params) {
-		groupId = +(params.get('g') || "0");
-		joinKey = +(params.get('k') || "0");
-	}
-	const page = openPage("chat");
-
-	if (page.childElementCount) {
-		return;
-	}
-	page.classList.add("flex-column");
-
-	const html = `
-		<div class="page-header">
-			<button class="back-btn">Back </button>
-			<span>${document.title}</span>
-		</div>
-		<div class="page-content">
-		</div>
-		<div id="chat-footer">
-			<div id="reply-preview" class="hidden">
-				<span id="reply-text"></span>
-				<button id="cancel-reply">✕</button>
-			</div>
-			<div id="input-area">
-				<textarea id="message-input" rows="3"></textarea>
-				<button id="send-btn"></button>
-			</div>
-		</div>`;
-	page.innerHTML = html;
-
-	chatContainer = getElemByClass(page, "page-content");
-	messageInput = document.getElementById("message-input");
-	let sendBtn = document.getElementById("send-btn");
-	replyPreview = document.getElementById("reply-preview");
-	replyText = document.getElementById("reply-text");
-	let cancelReplyBtn = document.getElementById("cancel-reply");
-
-	// Event listeners
-	sendBtn.addEventListener("click", sendMessage);
-	cancelReplyBtn.addEventListener("click", cancelReply);
-
-	updateElement(messageInput, { placeholder: "Type a message" });
-	updateElement(sendBtn, { text: "Send" });
-
-	let backBtn = getElemByClass(page, "back-btn");
-	backBtn.addEventListener("click", () => {
-		clearInterval(timerId);
-		popPage();
-	});
-
-	timerId = setInterval(fetchMessages, 4000);
-	return fetchMessages();
-}
-
-// Fetch messages from the API
-let fetching = false;
-let isonline = true; // Assume online initially
-
-async function fetchMessages() {
-	if (fetching) return;
-	fetching = true;
-
-	let url = `/api/messages?groupId=${groupId}&joinKey=${joinKey}`;
-	url += '&lastMessageDateSent=' + lastMessageDateSent;
-
-	const response = await _fetch(url);
-
-	if (!response.status) {
-		if (isonline) {
-			isonline = false;
-			showProblemDetail(response);
-		}
-		fetching = false;
-		return;
-	}
-	isonline = true;
-
-	if (!response.ok) {
-		showProblemDetail(response);
-		fetching = false;
-		return;
-	}
-
-	// process the successful response
-	const content = await response.json();
-
-	if (content.messages.length > 0) {
-		content.messages.forEach(message => {
-			// Store message
-			messagesMap[message.id] = message;
-			appendMessage(message);
-
-			if (message.dateSent > lastMessageDateSent) {
-				lastMessageDateSent = message.dateSent;
-			}
-		});
-		scrollToBottom();
-	}
-
-	changeSkippedMessage(content.skippedMessageId);
-	fetching = false;
-}
+const optionsButtonSvgElem = createSVGElement(svgStrings.optionsButton);
 
 function deletedMessage(message) {
 	return !message || !message.content;
 }
 
-function setReplySnippet(elem, messageId) {
-	const message = messagesMap[messageId];
-	if (deletedMessage(message)) {
-		updateElement(elem, { text: "Reply to a deleted message" });
-		return;
-	}
-
-	const maxLength = 127;
-	let content = message.content;
-	if (content.length > maxLength)
-		content = content.slice(0, maxLength) + "...";
-
-	const sender = message.senderName;
-	updateElement(elem, {
-		content: [
-			{ text: sender, tag: isAI(sender) ? 'span' : null },
-			{ text: ": " + content }
-		]
-	});
-}
-
-function onReplySnippet(message) {
-	const elem = document.getElementById(message.parentId);
+function onReplySnippet(event) {
+	const elem = document.getElementById(event.target.dataset.messageId);
 	if (elem)
 		elem.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
@@ -161,103 +22,24 @@ function isAI(name) {
 	return name == 'AI' || name == 'IA';
 }
 
-function onReplyButton(message) {
-	parentId = message.id;
-	setReplySnippet(replyText, message.id);
-	replyPreview.classList.remove("hidden");
-
-	if (!messageInput.value) {
-		const sender = message.senderName;
-		if (isAI(sender))
-			messageInput.value = '@' + tl(sender) + ' ';
-	}
-	messageInput.focus();
+function showOptions(event) {
+	if (event.target == document.activeElement)
+		setTimeout(() => event.target.blur(), 200);
 }
 
-function quit_options(event) {
+function quitOptions(event) {
 	event.target.closest("button").blur();
-}
-
-function onDeleteMessage(message, e) {
-	quit_options(e);
-	if (confirm("Please confirm you want to delete")) {
-		const url = "/api/message/delete?id=" + message.id;
-		_fetch(url, { method: "DELETE" }).then((response) => {
-			if (response.ok) {
-				const elem = document.getElementById(message.id);
-				elem.remove();
-				message.content = null;
-			}
-			else showProblemDetail(response);
-		});
-	}
-}
-
-let currentSkippedMessageId = null;
-
-function changeSkippedMessage(messageId) {
-	let id = currentSkippedMessageId;
-	if (id == messageId)
-		return;
-
-	if (id) {
-		const elem = document.getElementById(id);
-		if (elem)
-			elem.classList.remove("ai-skipped");
-	}
-
-	id = messageId;
-	currentSkippedMessageId = id;
-	if (id) {
-		const elem = document.getElementById(id);
-		if (elem)
-			elem.classList.add("ai-skipped");
-	}
-}
-
-function onHideFromAI(message, e) {
-	quit_options(e);
-
-	if (!localStorage.firstHideFromAI) {
-		localStorage.firstHideFromAI = Date.now();
-		alert(tl("All prior messages will be skipped"));
-	}
-
-	const url = "/api/message/hide-from-ai?id=" + message.id;
-	_fetch(url, { method: "PATCH" }).then((response) => {
-		if (response.ok)
-			changeSkippedMessage(message.id);
-		else showProblemDetail(response);
-	});
 }
 
 function onCopyMessage(message, e) {
 	navigator.clipboard.writeText(message.content)
 		.then(() => {
-			quit_options(e);
+			quitOptions(e);
 		})
 		.catch(error => {
 			toast("Failed to copy the message");
 			console.error(error);
 		});
-}
-
-const optionsButtonSvgElem = createSVGElement(svgStrings.optionsButton);
-
-function sentOrCausedByMe(message) {
-	while (true) {
-		if (!message)
-			break;
-
-		if (message.sentByMe)
-			return true;
-
-		if (!isAI(message.senderName) || !message.parentId)
-			break;
-
-		message = messagesMap[message.parentId];
-	}
-	return false;
 }
 
 function getMessageTimeSent(message) {
@@ -267,64 +49,344 @@ function getMessageTimeSent(message) {
 	return `${hh}:${mm}`;
 }
 
-let latest = '';
-function appendDateSeparator(message) {
-	const dateStr = new Date(message.dateSent).toDateString();
-	if (latest != dateStr) {
-		latest = dateStr;
-		chatContainer.appendChild(createElement({
-			tag: 'p', class: "date-separator",
-			content: [{ tag: 'span', text: latest }]
-		}));
+class PageInfo {
+	constructor(page) {
+		this.messagesMap = {}; // messages stored by id for re-use
+
+		// DOM elements
+		this.page = page;
+		this.chatContainer = null;
+		this.messageInput = null;
+		this.titleElem = null;
+
+		this.parentId = null; // parent message to reply to
+		this.replyText = null;
+		this.replyPreview = null;
+
+		// Fetch messages from the API
+		this.fetching = false;
+		this.isonline = true; // Assume online initially
+		this.timerId = 0;
+
+		this.currentSkippedMessageId = null;
+		this.lastMessageDateSent = '';
+		this.latestMsgDate = '';
 	}
-}
 
-function createMessageOptionsButton(message) {
-	const options = [
-		{ text: "Copy", events: { 'click': (e) => onCopyMessage(message, e) } },
-		{ text: "Reply", events: { 'click': () => onReplyButton(message) } },
-	];
-
-	if (sentOrCausedByMe(message)) {
-		options.push({ text: "Delete", events: { 'click': (e) => onDeleteMessage(message, e) }, class: "delete-msg" });
-		options.push({ text: "Hide from AI", events: { 'click': (e) => onHideFromAI(message, e) }, class: "hide-from-ai" });
+	navigateBack(event) {
+		clearInterval(this.timerId);
+		popPage();
 	}
 
-	return createElement({
-		tag: "button",
-		class: "options-button",
-		events: {
-			"mousedown": function (e) {
-				if (e.target == document.activeElement)
-					setTimeout(() => e.target.blur(), 200);
+	// Auto-scroll the chat container to the bottom
+	scrollToBottom() {
+		this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+	}
+
+	// Send a new message to the API
+	sendMessage() {
+		const content = this.messageInput.value.trim();
+		if (!content) return; // Do nothing if the message is empty
+
+		// Build the message payload
+		const payload = {
+			groupId: groupId,
+			joinKey: joinKey,
+			parentId: this.parentId,
+			content: content
+		};
+		sendData('/api/message/send', 'POST', payload).then(response => {
+			if (response.ok) {
+				// Clear input and reset reply state
+				this.messageInput.value = "";
+				this.cancelReply();
+				this.fetchMessages(); // Fetch the new message immediately
+
+				return response.json().then(info => {
+					if (info.ai_is_busy) {
+						toast("AI is busy responding, please wait");
+					}
+				});
 			}
-		},
-		content: [
-			{ element: optionsButtonSvgElem.cloneNode(true) },
-			{ tag: "ul", class: "options-list", content: options }
-		]
-	});
-}
+			else showProblemDetail(response);
+		});
+	}
 
-// Append a message to the chat container
-function appendMessage(message) {
-	if (deletedMessage(message))
-		return;
+	// Cancel the current reply
+	cancelReply() {
+		this.parentId = null;
+		this.replyPreview.classList.add("hidden");
+		this.replyText.textContent = "";
+	}
 
-	appendDateSeparator(message);
+	getMessageInputUI() {
+		return [
+			{
+				tag: "div", class: "reply-preview hidden",
+				callback: (elem) => this.replyPreview = elem,
+				content: [
+					{
+						tag: "span", class: "reply-text",
+						events: { 'click': onReplySnippet },
+						callback: (elem) => this.replyText = elem
+					},
+					{
+						tag: "button", class: "cancel-reply", text: "x",
+						events: { "click": this.cancelReply.bind(this) }
+					}
+				]
+			},
+			{
+				tag: "div", class: "input-area",
+				content: [
+					{
+						tag: "textarea", class: "message-input",
+						rows: "3", placeholder: "Type a message",
+						callback: (elem) => this.messageInput = elem
+					},
+					{
+						tag: "button", class: "send-btn", text: "Send",
+						events: { "click": this.sendMessage.bind(this) }
+					}
+				]
+			}
+		];
+	}
 
-	chatContainer.appendChild(createElement({
-		tag: 'div',
-		id: message.id,
-		class: 'message ' + (message.sentByMe ? "sent" : "received"),
-		content: [
-			{ element: createMessageOptionsButton(message) },
+	async fetchMessages() {
+		if (this.fetching) return;
+		this.fetching = true;
+
+		let url = `/api/messages?groupId=${groupId}&joinKey=${joinKey}`;
+		url += '&lastMessageDateSent=' + this.lastMessageDateSent;
+
+		const response = await _fetch(url);
+
+		if (!response.status) {
+			if (this.isonline) {
+				this.isonline = false;
+				showProblemDetail(response);
+			}
+			this.fetching = false;
+			return;
+		}
+		this.isonline = true;
+
+		if (!response.ok) {
+			showProblemDetail(response);
+			this.fetching = false;
+			return;
+		}
+
+		// process the successful response
+		const content = await response.json();
+
+		if (content.messages.length > 0) {
+			content.messages.forEach(message => {
+				// Store message
+				this.messagesMap[message.id] = message;
+				this.appendMessage(message);
+
+				if (this.lastMessageDateSent < message.dateSent) {
+					this.lastMessageDateSent = message.dateSent;
+				}
+			});
+			this.scrollToBottom();
+		}
+
+		if (true)
+			this.titleElem.textContent = document.title;
+
+		this.changeSkippedMessage(content.skippedMessageId);
+		this.fetching = false;
+	}
+
+	initPage() {
+		const content = [
+			{
+				tag: "div", class: "page-header",
+				content: [
+					{
+						tag: "button", class: "back-btn", text: "Back",
+						style: "margin-right: 14px",
+						events: { "click": this.navigateBack.bind(this) }
+					},
+					{ tag: "span", callback: (elem) => this.titleElem = elem }
+				]
+			},
+			{
+				tag: "div", class: "page-content",
+				callback: (elem) => this.chatContainer = elem
+			},
+			{
+				tag: "div", class: "chat-footer",
+				content: this.getMessageInputUI()
+			}
+		];
+		updateElement(this.page, { content });
+
+		this.timerId = setInterval(this.fetchMessages.bind(this), 4000);
+		return this.fetchMessages();
+	}
+
+	setReplySnippet(elem, messageId) {
+		const message = this.messagesMap[messageId];
+		if (deletedMessage(message)) {
+			updateElement(elem, { text: "Reply to a deleted message" });
+			return;
+		}
+
+		const maxLength = 127;
+		let msg = message.content;
+		if (msg.length > maxLength)
+			msg = msg.slice(0, maxLength) + "...";
+
+		const sender = message.senderName;
+		const content = [
+			{ text: sender, tag: isAI(sender) ? 'span' : null },
+			{ text: ": " + msg }
+		];
+		updateElement(elem, { content });
+		elem.dataset.messageId = messageId;
+	}
+
+	onReplyButton(message) {
+		this.parentId = message.id;
+		this.setReplySnippet(this.replyText, message.id);
+		this.replyPreview.classList.remove("hidden");
+		const mi = this.messageInput;
+
+		if (!mi.value) {
+			const sender = message.senderName;
+			if (isAI(sender))
+				mi.value = '@' + tl(sender) + ' ';
+		}
+		mi.focus();
+	}
+
+	onDeleteMessage(message, e) {
+		quitOptions(e);
+		if (confirm("Please confirm you want to delete")) {
+			const url = "/api/message/delete?id=" + message.id;
+			_fetch(url, { method: "DELETE" }).then((response) => {
+				if (response.ok) {
+					const elem = document.getElementById(message.id);
+					elem.remove();
+					message.content = null;
+				}
+				else showProblemDetail(response);
+			});
+		}
+	}
+
+	changeSkippedMessage(messageId) {
+		let id = this.currentSkippedMessageId;
+		if (id == messageId)
+			return;
+
+		if (id) {
+			const elem = document.getElementById(id);
+			if (elem)
+				elem.classList.remove("ai-skipped");
+		}
+
+		id = messageId;
+		this.currentSkippedMessageId = id;
+
+		if (id) {
+			const elem = document.getElementById(id);
+			if (elem)
+				elem.classList.add("ai-skipped");
+		}
+	}
+
+	onHideFromAI(message, e) {
+		quitOptions(e);
+
+		if (!localStorage.firstHideFromAI) {
+			localStorage.firstHideFromAI = Date.now();
+			alert(tl("All prior messages will be skipped"));
+		}
+
+		const url = "/api/message/hide-from-ai?id=" + message.id;
+		_fetch(url, { method: "PATCH" }).then((response) => {
+			if (response.ok)
+				this.changeSkippedMessage(message.id);
+			else showProblemDetail(response);
+		});
+	}
+
+	appendDateSeparator(message) {
+		const dateStr = new Date(message.dateSent).toDateString();
+		if (this.latestMsgDate == dateStr)
+			return;
+		this.latestMsgDate = dateStr;
+		const info = {
+			tag: 'p', class: "date-separator",
+			content: [{ tag: 'span', content: [{ text: this.latestMsgDate }] }]
+		};
+		this.chatContainer.appendChild(createElement(info));
+	}
+
+	sentOrCausedByMe(message) {
+		while (true) {
+			if (!message)
+				break;
+
+			if (message.sentByMe)
+				return true;
+
+			if (!isAI(message.senderName) || !message.parentId)
+				break;
+
+			message = this.messagesMap[message.parentId];
+		}
+		return false;
+	}
+
+	createMessageOptionsButton(message) {
+		const options = [
+			{ text: "Copy", events: { 'click': (e) => onCopyMessage(message, e) } },
+			{ text: "Reply", events: { 'click': () => this.onReplyButton(message) } },
+		];
+
+		if (this.sentOrCausedByMe(message)) {
+			options.push({
+				text: "Delete", class: "delete-msg",
+				events: { 'click': (e) => this.onDeleteMessage(message, e) }
+			});
+			options.push({
+				text: "Hide from AI", class: "hide-from-ai",
+				events: { 'click': (e) => this.onHideFromAI(message, e) }
+			});
+		}
+
+		return createElement({
+			tag: "button",
+			class: "options-button",
+			events: { "mousedown": showOptions },
+			content: [
+				{ element: optionsButtonSvgElem.cloneNode(true) },
+				{ tag: "ul", class: "options-list", content: options }
+			]
+		});
+	}
+
+	// Append a message to the chat container
+	appendMessage(message) {
+		if (deletedMessage(message))
+			return;
+
+		this.appendDateSeparator(message);
+
+		const content = [
+			{ element: this.createMessageOptionsButton(message) },
 			{ tag: 'div', class: 'sender-name', text: message.senderName },
 			(
 				message.parentId && {
 					tag: 'div', class: 'reply-snippet',
-					events: { 'click': () => onReplySnippet(message) },
-					callback: (elem) => setReplySnippet(elem, message.parentId),
+					events: { 'click': onReplySnippet },
+					callback: (elem) => this.setReplySnippet(elem, message.parentId),
 				}
 			),
 			{
@@ -336,54 +398,44 @@ function appendMessage(message) {
 				content: [
 					{
 						tag: 'button', class: 'reply-btn', text: 'Reply',
-						events: { 'click': () => onReplyButton(message) }
+						events: { 'click': () => this.onReplyButton(message) }
 					},
 					{
 						tag: 'span', class: 'date-sent',
-						text: getMessageTimeSent(message)
+						content: [{ text: getMessageTimeSent(message) }]
 					}
 				]
 			}
-		]
-	}));
+		];
+
+		this.chatContainer.appendChild(createElement({
+			tag: 'div',
+			id: message.id,
+			class: 'message ' + (message.sentByMe ? "sent" : "received"),
+			content
+		}));
+	}
 }
 
-// Auto-scroll the chat container to the bottom
-function scrollToBottom() {
-	chatContainer.scrollTop = chatContainer.scrollHeight;
-}
+/**
+ * Open the Chat page
+ * @param {URLSearchParams} params
+ * @returns {Promise<void>}
+ */
+export default function openChatPage(params) {
+	const page = openPage("chat");
+	page.classList.add("flex-column");
 
-// Send a new message to the API
-function sendMessage() {
-	const content = messageInput.value.trim();
-	if (!content) return; // Do nothing if the message is empty
-	// Build the message payload
-	const payload = {
-		groupId: groupId,
-		joinKey: joinKey,
-		parentId: parentId,
-		content: content
-	};
-	sendData('/api/message/send', 'POST', payload).then(response => {
-		if (response.ok) {
-			// Clear input and reset reply state
-			messageInput.value = "";
-			cancelReply();
-			fetchMessages(); // Fetch the new message immediately
+	if (page.childElementCount) {
+		console.warn("How did we get here?");
+		return;
+	}
 
-			return response.json().then(info => {
-				if (info.ai_is_busy) {
-					toast("AI is busy responding, please wait");
-				}
-			});
-		}
-		else showProblemDetail(response);
-	});
-}
+	if (params) {
+		groupId = +(params.get('g') || "0");
+		joinKey = +(params.get('k') || "0");
+	}
 
-// Cancel the current reply
-function cancelReply() {
-	parentId = null;
-	replyPreview.classList.add("hidden");
-	replyText.textContent = "";
+	const x = new PageInfo(page);
+	return x.initPage();
 }

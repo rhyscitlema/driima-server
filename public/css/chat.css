@@ -107,7 +107,7 @@ body {
 }
 
 /* Input Area */
-#input-area {
+.input-area {
 	display: flex;
 	align-items: center;
 	padding: 10px;
@@ -115,7 +115,7 @@ body {
 	border-top: 1px solid #ccc;
 }
 
-#message-input {
+.message-input {
 	flex: 1;
 	padding: 10px;
 	font-size: 14px;
@@ -125,7 +125,7 @@ body {
 	font-family: Arial, sans-serif;
 }
 
-#send-btn {
+.send-btn {
 	margin-left: 10px;
 	padding: 10px 20px;
 	font-size: 14px;
@@ -136,12 +136,12 @@ body {
 	cursor: pointer;
 }
 
-#send-btn:hover {
+.send-btn:hover {
 	background-color: #0b7a64;
 }
 
 /* Reply Preview Box */
-#reply-preview {
+.reply-preview {
 	display: flex;
 	align-items: center;
 	background-color: #fff;
@@ -150,11 +150,11 @@ body {
 	border-radius: 4px;
 }
 
-#reply-preview.hidden {
+.reply-preview.hidden {
 	display: none;
 }
 
-#cancel-reply {
+.cancel-reply {
 	background: transparent;
 	border: none;
 	font-size: 16px;
