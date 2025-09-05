@@ -4,12 +4,6 @@ import openChatPage from 'chat';
 import { setup, toast, createElement, updateElement } from 'spart';
 import { isAuthenticated, sendParams, showProblemDetail } from 'fetch';
 
-function generateGUID() {
-	return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, c =>
-		(c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
-	);
-}
-
 function onKeyPressed(e) {
 	if (e.key === 'Enter')
 		handleLogin();
@@ -81,7 +75,7 @@ function createNewAnonymousAccount(e) {
 	}
 	else {
 		username.value = 'ANO';
-		password.value = generateGUID().replace(/-/g, '');
+		password.value = crypto.randomUUID().replace(/-/g, '');
 		username.readOnly = true;
 		password.readOnly = true;
 		password.type = 'text'; // show password

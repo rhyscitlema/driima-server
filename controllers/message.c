@@ -4,88 +4,89 @@
 typedef struct RoomInfo
 {
 	int id;
-	enum RoomState state;
+	int groupId;
 	int joinKey;
-	char skippedMessageId[GUID_STORE];
+	int memberId;
+	int memberStatus;
+	enum RoomState state;
 	char groupName[128];
 	char groupAbout[512];
-	char bannerImage[128];
+	char groupBanner[128];
+	char skippedMessageId[GUID_STORE];
 } RoomInfo;
 
 static errno_t room_info_callback(void *context, int argc, char **argv, char **columns)
 {
-	const int min = 4;
-	CHECK_SQL_CALLBACK(min);
-
 	RoomInfo *room = (RoomInfo *)context;
-	room->id = atoi(argv[0]);
-	room->state = atoi(argv[1]);
-	room->joinKey = atoi(argv[2]);
-	str_copy(room->skippedMessageId, sizeof(room->skippedMessageId), argv[3]);
-
-	room->groupName[0] = '\0';
-	room->groupAbout[0] = '\0';
-	room->bannerImage[0] = '\0';
-
-	if (argc == min + 3)
+	for (int i = 0; i < argc; i++)
 	{
-		str_copy(room->groupName, sizeof(room->groupName), argv[4]);
-		str_copy(room->groupAbout, sizeof(room->groupAbout), argv[5]);
-		str_copy(room->bannerImage, sizeof(room->bannerImage), argv[6]);
+		KeyValuePair x = {columns[i], argv[i]};
+		KVP_TO_INT(x, room->id, "id")
+		KVP_TO_INT(x, room->groupId, "groupId")
+		KVP_TO_INT(x, room->joinKey, "joinKey")
+		KVP_TO_INT(x, room->memberId, "memberId")
+		KVP_TO_INT(x, room->memberStatus, "memberStatus")
+		KVP_TO_INT(x, room->state, "roomState")
+		KVP_TO_STR_V2(x, room->groupName, sizeof(room->groupName), "groupName")
+		KVP_TO_STR_V2(x, room->groupAbout, sizeof(room->groupAbout), "groupAbout")
+		KVP_TO_STR_V2(x, room->groupBanner, sizeof(room->groupBanner), "groupBanner")
+		KVP_TO_STR_V2(x, room->skippedMessageId, sizeof(room->skippedMessageId), "skippedMessageId")
 	}
 	return 0;
 }
 
-static apr_status_t get_room_info(HttpContext *c, RoomInfo *room, char *buffer, int groupId, int joinKey, bool fullInfo)
+static apr_status_t get_room_info(HttpContext *c, RoomInfo *room, char *buffer, int roomId, int groupId, int joinKey)
 {
-	apr_status_t status = OK;
+	int userId = c->identity.authenticated ? atoi(c->identity.sub) : 0;
 
 	DbQuery query = {.dbc = &c->dbc};
 	query.callback = room_info_callback;
 	query.callback_context = room;
+
 	query.sql =
-		"select r.Id, r.State, g.JoinKey, HEX(r.SkippedMessageId)\n"
-		"from Rooms as r\n"
-		"join `Groups` as g on g.Id = r.GroupId\n"
-		"where g.Id = ?\n";
+		"select *\n"
+		"from ViewRooms as r\n"
+		"left join ViewRoomMembers as rm on rm.RoomId = r.Id and rm.MemberId = ?\n"
+		"where r.Id = ? or (GroupId = ? and RoomName = '')\n";
 
-	if (fullInfo)
-		query.sql =
-			"select r.Id, r.State, g.JoinKey, HEX(r.SkippedMessageId)\n"
-			", g.Name, g.About, b.Path\n"
-			"from Rooms as r\n"
-			"join `Groups` as g on g.Id = r.GroupId\n"
-			"left join FilePaths as b on b.Id = g.BannerImageId\n"
-			"where g.Id = ?\n";
-
-	JsonValue argv[1];
+	JsonValue argv[3];
+	argv[query.argc++] = json_new_int(userId, false);
+	argv[query.argc++] = json_new_int(roomId, false);
 	argv[query.argc++] = json_new_int(groupId, false);
 
 	room->id = 0; // first clear
+	room->memberId = 0;
 
 	if (sql_exec(&query, argv) != 0)
 	{
 		strcpy(buffer, tl("Internal error: failed to get data"));
-		status = HTTP_INTERNAL_SERVER_ERROR;
-		goto finish;
+		return HTTP_INTERNAL_SERVER_ERROR;
 	}
 
 	if (room->id == 0) // if not found
 	{
-		sprintf(buffer, tl("Group %d not found"), groupId);
-		status = HTTP_NOT_FOUND;
-		goto finish;
+		if (roomId != 0)
+			sprintf(buffer, tl("Room %d not found"), roomId);
+		else
+			sprintf(buffer, tl("Group %d not found"), groupId);
+		return HTTP_NOT_FOUND;
 	}
 
-	if (room->joinKey != joinKey)
+	if (room->memberId == 0) // if not a member of the group
 	{
-		strcpy(buffer, tl("Join key provided is not valid"));
-		status = HTTP_FORBIDDEN;
-		goto finish;
+		if (joinKey == 0)
+		{
+			strcpy(buffer, tl("You are not a member of the group"));
+			return HTTP_FORBIDDEN;
+		}
+		if (room->joinKey != joinKey)
+		{
+			strcpy(buffer, tl("Join key provided is not valid"));
+			return HTTP_FORBIDDEN;
+		}
 	}
 
-finish:
-	return status;
+	return OK;
 }
 
 struct messages_callback
@@ -131,12 +132,15 @@ static errno_t messages_callback(void *context, int argc, char **argv, char **co
 
 static apr_status_t get_messages(HttpContext *c)
 {
-	int groupId = 0, joinKey = 0;
+	int roomId = 0, groupId = 0, joinKey = 0;
 	char *lastMessageDateSent = NULL;
 
 	KeyValuePair x;
 	while ((x = get_next_url_query_argument(&c->request_args, '&', true)).key != NULL)
 	{
+		KVP_TO_INT(x, roomId, "r")
+		KVP_TO_INT(x, groupId, "g")
+		KVP_TO_INT(x, joinKey, "k")
 		KVP_TO_INT(x, groupId, "groupId")
 		KVP_TO_INT(x, joinKey, "joinKey")
 		KVP_TO_STR(x, lastMessageDateSent, "lastMessageDateSent")
@@ -149,7 +153,7 @@ static apr_status_t get_messages(HttpContext *c)
 	char buffer[1024];
 	RoomInfo room;
 
-	apr_status_t status = get_room_info(c, &room, buffer, groupId, joinKey, false);
+	apr_status_t status = get_room_info(c, &room, buffer, roomId, groupId, joinKey);
 	if (status != OK)
 		return http_problem(c, NULL, buffer, status);
 
@@ -173,7 +177,11 @@ static apr_status_t get_messages(HttpContext *c)
 		return http_problem(c, NULL, tl("An error has occurred while obtaining the messages"), 500);
 	}
 
-	vm_add(c, "skippedMessageId", room.skippedMessageId, 0);
+	JsonObject *info = json_new_object();
+	json_put_number(info, "id", room.id, 0);
+	json_put_string(info, "name", room.groupName, 0);
+	json_put_string(info, "skippedMessageId", room.skippedMessageId, 0);
+	vm_add_node(c, "roomInfo", info, 0);
 	vm_add_node(c, "messages", context.messages, 0);
 
 	return process_model(c, HTTP_OK);
@@ -268,11 +276,10 @@ static apr_status_t send_message(HttpContext *c)
 		goto finish;
 	}
 
-	int groupId = (int)json_get_number(msg, "groupId");
-	int joinKey = (int)json_get_number(msg, "joinKey");
+	int roomId = (int)json_get_number(msg, "roomId");
 
 	RoomInfo room;
-	status = get_room_info(c, &room, buffer, groupId, joinKey, false);
+	status = get_room_info(c, &room, buffer, roomId, 0, 0);
 	if (status != OK)
 		goto finish;
 
@@ -512,7 +519,7 @@ static apr_status_t chat_page(HttpContext *c)
 	char buffer[1024];
 	RoomInfo room;
 
-	apr_status_t status = get_room_info(c, &room, buffer, groupId, joinKey, true);
+	apr_status_t status = get_room_info(c, &room, buffer, roomId, groupId, joinKey);
 	if (status != OK)
 		return http_problem(c, NULL, buffer, status);
 
@@ -524,10 +531,10 @@ static apr_status_t chat_page(HttpContext *c)
 	json_put_string(og, "Description", room.groupAbout, 0);
 
 	get_base_url(c->request, buffer, sizeof(buffer));
-	sprintf(buffer + strlen(buffer), "%s?g=%d", c->request->uri, groupId);
+	sprintf(buffer + strlen(buffer), "%s?g=%d", c->request->uri, room.groupId);
 	json_put_string(og, "URL", buffer, 0);
 
-	if (file_path_to_full_url(c, buffer, sizeof(buffer), room.bannerImage))
+	if (file_path_to_full_url(c, buffer, sizeof(buffer), room.groupBanner))
 		json_put_string(og, "Image", buffer, 0);
 
 	JsonObject *page = json_get_node(c->view_model, "Page");
@@ -538,12 +545,13 @@ static apr_status_t chat_page(HttpContext *c)
 
 static apr_status_t home_page(HttpContext *c)
 {
-	return http_redirect(c, "/chat");
+	return http_redirect(c, "/chat", HTTP_MOVED_TEMPORARILY, true);
 }
 
 void register_message_controller()
 {
 	CHECK_ERRNO;
+	add_endpoint(M_GET, "/anonymous/chat", home_page, 0); // obsolete
 	add_endpoint(M_GET, "/", home_page, 0);
 	add_endpoint(M_GET, "/chat", chat_page, 0);
 	add_endpoint(M_GET, "/api/messages", get_messages, Endpoint_AuthWebAPI);

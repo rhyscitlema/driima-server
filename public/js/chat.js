@@ -3,9 +3,6 @@ import { _fetch, sendData, showProblemDetail } from 'fetch';
 import { tl } from 'i18n';
 import { openPage, popPage } from 'pages';
 
-let groupId = 0;
-let joinKey = 0;
-
 const optionsButtonSvgElem = createSVGElement(svgStrings.optionsButton);
 
 function deletedMessage(message) {
@@ -50,8 +47,10 @@ function getMessageTimeSent(message) {
 }
 
 class PageInfo {
-	constructor(page) {
+	constructor(page, search) {
 		this.messagesMap = {}; // messages stored by id for re-use
+		this.search = search;
+		this.roomId = 0;
 
 		// DOM elements
 		this.page = page;
@@ -59,7 +58,8 @@ class PageInfo {
 		this.messageInput = null;
 		this.titleElem = null;
 
-		this.parentId = null; // parent message to reply to
+		// parent message to reply to
+		this.replyMsgId = null;
 		this.replyText = null;
 		this.replyPreview = null;
 
@@ -90,9 +90,8 @@ class PageInfo {
 
 		// Build the message payload
 		const payload = {
-			groupId: groupId,
-			joinKey: joinKey,
-			parentId: this.parentId,
+			roomId: this.roomId,
+			parentId: this.replyMsgId,
 			content: content
 		};
 		sendData('/api/message/send', 'POST', payload).then(response => {
@@ -114,7 +113,7 @@ class PageInfo {
 
 	// Cancel the current reply
 	cancelReply() {
-		this.parentId = null;
+		this.replyMsgId = null;
 		this.replyPreview.classList.add("hidden");
 		this.replyText.textContent = "";
 	}
@@ -157,8 +156,8 @@ class PageInfo {
 		if (this.fetching) return;
 		this.fetching = true;
 
-		let url = `/api/messages?groupId=${groupId}&joinKey=${joinKey}`;
-		url += '&lastMessageDateSent=' + this.lastMessageDateSent;
+		let url = "/api/messages?" + this.search;
+		url += "&lastMessageDateSent=" + this.lastMessageDateSent;
 
 		const response = await _fetch(url);
 
@@ -194,10 +193,13 @@ class PageInfo {
 			this.scrollToBottom();
 		}
 
-		if (true)
-			this.titleElem.textContent = document.title;
+		const room = content.roomInfo;
+		if (room.id) {
+			this.roomId = room.id;
+			this.titleElem.textContent = room.name;
+		}
 
-		this.changeSkippedMessage(content.skippedMessageId);
+		this.changeSkippedMessage(room.skippedMessageId);
 		this.fetching = false;
 	}
 
@@ -251,7 +253,7 @@ class PageInfo {
 	}
 
 	onReplyButton(message) {
-		this.parentId = message.id;
+		this.replyMsgId = message.id;
 		this.setReplySnippet(this.replyText, message.id);
 		this.replyPreview.classList.remove("hidden");
 		const mi = this.messageInput;
@@ -266,7 +268,7 @@ class PageInfo {
 
 	onDeleteMessage(message, e) {
 		quitOptions(e);
-		if (confirm("Please confirm you want to delete")) {
+		if (confirm(tl("Please confirm you want to delete"))) {
 			const url = "/api/message/delete?id=" + message.id;
 			_fetch(url, { method: "DELETE" }).then((response) => {
 				if (response.ok) {
@@ -430,12 +432,7 @@ export default function openChatPage(params) {
 		console.warn("How did we get here?");
 		return;
 	}
-
-	if (params) {
-		groupId = +(params.get('g') || "0");
-		joinKey = +(params.get('k') || "0");
-	}
-
-	const x = new PageInfo(page);
+	const search = params.toString();
+	const x = new PageInfo(page, search);
 	return x.initPage();
 }

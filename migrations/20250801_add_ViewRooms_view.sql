@@ -8,15 +8,23 @@ ALTER TABLE `Groups` DROP COLUMN WallpaperImageId;
 ALTER TABLE `Rooms` ADD COLUMN WallpaperImageId BIGINT NULL;
 ALTER TABLE `Rooms` ADD FOREIGN KEY (WallpaperImageId) REFERENCES Files(Id) ON DELETE SET NULL;
 
+UPDATE Rooms SET Name = '' WHERE Name IS NULL;
+ALTER TABLE Rooms MODIFY COLUMN Name VARCHAR(63) NOT NULL;
+ALTER TABLE Rooms ADD CONSTRAINT UQ_GroupId_Name UNIQUE (GroupId, Name);
+
 CREATE VIEW ViewRooms AS
 SELECT
 	r.Id,
 	r.GroupId,
 	r.Name as RoomName,
 	g.Name as GroupName,
+	g.About as GroupAbout,
 	g.Status as GroupStatus,
+	g.JoinKey,
+	r.State as RoomState,
 	m.DateSent as LatestDateSent,
 	IF(m.DateDeleted IS NULL, LEFT(m.Content, 128), NULL) AS LatestMessage,
+	HEX(r.SkippedMessageId) as SkippedMessageId,
 	logo.Path as GroupLogo,
 	banner.Path as GroupBanner
 FROM Rooms as r
