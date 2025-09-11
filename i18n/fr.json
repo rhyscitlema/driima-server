@@ -14,7 +14,7 @@
 	"Group %d not found": "Groupe %d non trouvé",
 	"Room %d not found": "Chambre %d non trouvé",
 	"You are not a member of the group": "Vous n'êtes pas membre du groupe",
-	"Join key provided is not valid": "La clé de participation fournie n'est pas valide",
+	"The join key provided is not valid": "La clé de participation fournie n'est pas valide",
 	"An error has occurred while obtaining the messages": "Une erreur est survenue lors de l'obtention des messages",
 	"Failed to parse the request body": "Échec de l'analyse du corps de la requête",
 	"Invalid date format": "Format de date invalide",

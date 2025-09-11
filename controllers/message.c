@@ -72,21 +72,22 @@ static apr_status_t get_room_info(HttpContext *c, RoomInfo *room, char *buffer, 
 		return HTTP_NOT_FOUND;
 	}
 
-	if (room->memberId == 0) // if not a member of the group
-	{
-		if (joinKey == 0)
-		{
-			strcpy(buffer, tl("You are not a member of the group"));
-			return HTTP_FORBIDDEN;
-		}
-		if (room->joinKey != joinKey)
-		{
-			strcpy(buffer, tl("Join key provided is not valid"));
-			return HTTP_FORBIDDEN;
-		}
-	}
+	if (room->memberId != 0) // if user is a member of the group
+		return OK;
 
-	return OK;
+	else if (room->joinKey == joinKey)
+		return OK;
+
+	else if (joinKey == 0)
+	{
+		strcpy(buffer, tl("You are not a member of the group"));
+		return HTTP_FORBIDDEN;
+	}
+	else
+	{
+		strcpy(buffer, tl("The join key provided is not valid"));
+		return HTTP_FORBIDDEN;
+	}
 }
 
 struct messages_callback
