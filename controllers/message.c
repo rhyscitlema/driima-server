@@ -182,6 +182,8 @@ static apr_status_t get_messages(HttpContext *c)
 	json_put_number(info, "id", room.id, 0);
 	json_put_string(info, "name", room.groupName, 0);
 	json_put_string(info, "skippedMessageId", room.skippedMessageId, 0);
+	if (room.memberId != 0)
+		json_put_node(info, "joined", cJSON_CreateBool(true), 0);
 	vm_add_node(c, "roomInfo", info, 0);
 	vm_add_node(c, "messages", context.messages, 0);
 
@@ -497,6 +499,46 @@ static apr_status_t hide_message_from_ai(HttpContext *c)
 	return HTTP_NO_CONTENT;
 }
 
+static apr_status_t join_group(HttpContext *c)
+{
+	int roomId = 0, groupId = 0, joinKey = 0;
+
+	KeyValuePair x;
+	while ((x = get_next_url_query_argument(&c->request_args, '&', true)).key != NULL)
+	{
+		KVP_TO_INT(x, roomId, "r")
+		KVP_TO_INT(x, groupId, "g")
+		KVP_TO_INT(x, joinKey, "k")
+	}
+
+	char buffer[1024];
+	RoomInfo room;
+
+	apr_status_t status = get_room_info(c, &room, buffer, roomId, groupId, joinKey);
+	if (status != OK)
+		return http_problem(c, NULL, buffer, status);
+
+	if (room.memberId != 0)
+		return HTTP_NO_CONTENT;
+
+	DbQuery query = {.dbc = &c->dbc};
+	query.sql = "INSERT INTO GroupMembers (GroupId, MemberId) VALUES (?, ?)";
+
+	int userId = str_to_int(c->identity.sub);
+
+	JsonValue argv[2];
+	argv[query.argc++] = json_new_int(room.groupId, false);
+	argv[query.argc++] = json_new_int(userId, false);
+
+	if (sql_exec(&query, argv) != 0)
+	{
+		strcpy(buffer, tl("Internal error: failed to get data"));
+		return HTTP_INTERNAL_SERVER_ERROR;
+	}
+
+	return HTTP_NO_CONTENT;
+}
+
 static apr_status_t chat_page(HttpContext *c)
 {
 	c->constants.layout_file = NO_LAYOUT_FILE;
@@ -555,7 +597,11 @@ void register_message_controller()
 	add_endpoint(M_GET, "/anonymous/chat", home_page, 0); // obsolete
 	add_endpoint(M_GET, "/", home_page, 0);
 	add_endpoint(M_GET, "/chat", chat_page, 0);
-	add_endpoint(M_GET, "/api/messages", get_messages, Endpoint_AuthWebAPI);
+
+	add_endpoint(M_GET, "/api/room/messages", get_messages, Endpoint_AuthWebAPI);
+	add_endpoint(M_GET, "/api/message/many", get_messages, Endpoint_AuthWebAPI); // obsolete
+	add_endpoint(M_POST, "/api/room/join", join_group, Endpoint_AuthWebAPI);
+
 	add_endpoint(M_POST, "/api/message/send", send_message, Endpoint_AuthWebAPI);
 	add_endpoint(M_DELETE, "/api/message/delete", delete_message, Endpoint_AuthWebAPI);
 	add_endpoint(M_PATCH, "/api/message/hide-from-ai", hide_message_from_ai, Endpoint_AuthWebAPI);

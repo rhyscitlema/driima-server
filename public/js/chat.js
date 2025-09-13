@@ -50,11 +50,12 @@ class PageInfo {
 	constructor(page, search) {
 		this.messagesMap = {}; // messages stored by id for re-use
 		this.search = search;
-		this.roomId = 0;
+		this.room = {};
 
 		// DOM elements
 		this.page = page;
 		this.chatContainer = null;
+		this.pageFooter = null;
 		this.messageInput = null;
 		this.titleElem = null;
 
@@ -68,7 +69,6 @@ class PageInfo {
 		this.isonline = true; // Assume online initially
 		this.timerId = 0;
 
-		this.currentSkippedMessageId = null;
 		this.lastMessageDateSent = '';
 		this.latestMsgDate = '';
 	}
@@ -90,7 +90,7 @@ class PageInfo {
 
 		// Build the message payload
 		const payload = {
-			roomId: this.roomId,
+			roomId: this.room.id,
 			parentId: this.replyMsgId,
 			content: content
 		};
@@ -111,6 +111,18 @@ class PageInfo {
 		});
 	}
 
+	async joinGroup(e) {
+		e.target.disabled = true;
+		const url = "/api/room/join?" + this.search;
+		const response = await _fetch(url, { method: "POST" });
+		if (response.ok) {
+			this.room.joined = true;
+			this.setPageFooter();
+		}
+		else showProblemDetail(response);
+		e.target.disabled = false;
+	}
+
 	// Cancel the current reply
 	cancelReply() {
 		this.replyMsgId = null;
@@ -118,8 +130,8 @@ class PageInfo {
 		this.replyText.textContent = "";
 	}
 
-	getMessageInputUI() {
-		return [
+	setPageFooter() {
+		let content = [
 			{
 				tag: "div", class: "reply-preview hidden",
 				callback: (elem) => this.replyPreview = elem,
@@ -150,13 +162,26 @@ class PageInfo {
 				]
 			}
 		];
+
+		if (!this.room.joined) {
+			content = [{
+				tag: "div", style: "padding: 1em; text-align: center;",
+				content: [
+					{
+						tag: "button", text: "Join this group",
+						events: { "click": this.joinGroup.bind(this) }
+					}
+				]
+			}];
+		}
+		updateElement(this.pageFooter, { content });
 	}
 
 	async fetchMessages() {
 		if (this.fetching) return;
 		this.fetching = true;
 
-		let url = "/api/messages?" + this.search;
+		let url = "/api/room/messages?" + this.search;
 		url += "&lastMessageDateSent=" + this.lastMessageDateSent;
 
 		const response = await _fetch(url);
@@ -180,6 +205,16 @@ class PageInfo {
 		// process the successful response
 		const content = await response.json();
 
+		const room = content.roomInfo;
+		this.changeSkippedMessage(room.skippedMessageId);
+		// above must come before below
+
+		if (!this.room.id) {
+			this.room = room;
+			this.titleElem.textContent = room.name;
+			this.setPageFooter();
+		}
+
 		if (content.messages.length > 0) {
 			content.messages.forEach(message => {
 				// Store message
@@ -193,13 +228,6 @@ class PageInfo {
 			this.scrollToBottom();
 		}
 
-		const room = content.roomInfo;
-		if (room.id) {
-			this.roomId = room.id;
-			this.titleElem.textContent = room.name;
-		}
-
-		this.changeSkippedMessage(room.skippedMessageId);
 		this.fetching = false;
 	}
 
@@ -221,14 +249,15 @@ class PageInfo {
 				callback: (elem) => this.chatContainer = elem
 			},
 			{
-				tag: "div", class: "chat-footer",
-				content: this.getMessageInputUI()
+				tag: "div", class: "page-footer",
+				callback: (elem) => this.pageFooter = elem
 			}
 		];
 		updateElement(this.page, { content });
 
 		this.timerId = setInterval(this.fetchMessages.bind(this), 4000);
-		return this.fetchMessages();
+		return this.fetchMessages().then(() => {
+		});
 	}
 
 	setReplySnippet(elem, messageId) {
@@ -253,6 +282,10 @@ class PageInfo {
 	}
 
 	onReplyButton(message) {
+		if (!this.room.joined) {
+			toast("Join this group");
+			return;
+		}
 		this.replyMsgId = message.id;
 		this.setReplySnippet(this.replyText, message.id);
 		this.replyPreview.classList.remove("hidden");
@@ -282,7 +315,7 @@ class PageInfo {
 	}
 
 	changeSkippedMessage(messageId) {
-		let id = this.currentSkippedMessageId;
+		let id = this.room.skippedMessageId;
 		if (id == messageId)
 			return;
 
@@ -293,7 +326,7 @@ class PageInfo {
 		}
 
 		id = messageId;
-		this.currentSkippedMessageId = id;
+		this.room.skippedMessageId = id;
 
 		if (id) {
 			const elem = document.getElementById(id);
