@@ -1,6 +1,35 @@
 #include <ctype.h>
 #include "base.h"
 
+typedef struct UrlArgs
+{
+	int userId;
+	int roomId;
+	int groupId;
+	int joinKey;
+	char *lastMessageDateSent;
+} UrlArgs;
+
+static UrlArgs get_url_args(HttpContext *c)
+{
+	UrlArgs args = {0};
+
+	if (c->identity.authenticated)
+		args.userId = atoi(c->identity.sub);
+
+	KeyValuePair x;
+	while ((x = get_next_url_query_argument(&c->request_args, '&', true)).key != NULL)
+	{
+		KVP_TO_INT(x, args.roomId, "r")
+		KVP_TO_INT(x, args.groupId, "g")
+		KVP_TO_INT(x, args.joinKey, "k")
+		KVP_TO_INT(x, args.groupId, "groupId")
+		KVP_TO_INT(x, args.joinKey, "joinKey")
+		KVP_TO_STR(x, args.lastMessageDateSent, "lastMessageDateSent")
+	}
+	return args;
+}
+
 typedef struct RoomInfo
 {
 	int id;
@@ -35,10 +64,8 @@ static errno_t room_info_callback(void *context, int argc, char **argv, char **c
 	return 0;
 }
 
-static apr_status_t get_room_info(HttpContext *c, RoomInfo *room, char *buffer, int roomId, int groupId, int joinKey)
+static apr_status_t get_room_info(HttpContext *c, RoomInfo *room, UrlArgs args, char *buffer)
 {
-	int userId = c->identity.authenticated ? atoi(c->identity.sub) : 0;
-
 	DbQuery query = {.dbc = &c->dbc};
 	query.callback = room_info_callback;
 	query.callback_context = room;
@@ -50,9 +77,9 @@ static apr_status_t get_room_info(HttpContext *c, RoomInfo *room, char *buffer, 
 		"where r.Id = ? or (GroupId = ? and RoomName = '')\n";
 
 	JsonValue argv[3];
-	argv[query.argc++] = json_new_int(userId, false);
-	argv[query.argc++] = json_new_int(roomId, false);
-	argv[query.argc++] = json_new_int(groupId, false);
+	argv[query.argc++] = json_new_int(args.userId, false);
+	argv[query.argc++] = json_new_int(args.roomId, false);
+	argv[query.argc++] = json_new_int(args.groupId, false);
 
 	room->id = 0; // first clear
 	room->memberId = 0;
@@ -65,20 +92,20 @@ static apr_status_t get_room_info(HttpContext *c, RoomInfo *room, char *buffer, 
 
 	if (room->id == 0) // if not found
 	{
-		if (roomId != 0)
-			sprintf(buffer, tl("Room %d not found"), roomId);
+		if (args.roomId != 0)
+			sprintf(buffer, tl("Room %d not found"), args.roomId);
 		else
-			sprintf(buffer, tl("Group %d not found"), groupId);
+			sprintf(buffer, tl("Group %d not found"), args.groupId);
 		return HTTP_NOT_FOUND;
 	}
 
 	if (room->memberId != 0) // if user is a member of the group
 		return OK;
 
-	else if (room->joinKey == joinKey)
+	else if (room->joinKey == args.joinKey)
 		return OK;
 
-	else if (joinKey == 0)
+	else if (args.joinKey == 0)
 	{
 		strcpy(buffer, tl("You are not a member of the group"));
 		return HTTP_FORBIDDEN;
@@ -92,7 +119,7 @@ static apr_status_t get_room_info(HttpContext *c, RoomInfo *room, char *buffer, 
 
 struct messages_callback
 {
-	int userId;
+	int signedInUserId;
 	JsonArray *messages;
 };
 
@@ -110,7 +137,7 @@ static errno_t messages_callback(void *context, int argc, char **argv, char **co
 	char str[64];
 
 	int userId = atoi(argv[2]);
-	if (userId == info->userId)
+	if (userId == info->signedInUserId)
 		json_put_node(msg, "sentByMe", cJSON_CreateBool(true), 0);
 
 	if (!str_empty(argv[3]))
@@ -133,32 +160,23 @@ static errno_t messages_callback(void *context, int argc, char **argv, char **co
 
 static apr_status_t get_messages(HttpContext *c)
 {
-	int roomId = 0, groupId = 0, joinKey = 0;
-	char *lastMessageDateSent = NULL;
-
-	KeyValuePair x;
-	while ((x = get_next_url_query_argument(&c->request_args, '&', true)).key != NULL)
-	{
-		KVP_TO_INT(x, roomId, "r")
-		KVP_TO_INT(x, groupId, "g")
-		KVP_TO_INT(x, joinKey, "k")
-		KVP_TO_INT(x, groupId, "groupId")
-		KVP_TO_INT(x, joinKey, "joinKey")
-		KVP_TO_STR(x, lastMessageDateSent, "lastMessageDateSent")
-	}
+	UrlArgs args = get_url_args(c);
 
 	char dateSent[DATE_STORE];
-	if (utc_to_local(dateSent, sizeof(dateSent), lastMessageDateSent) != 0)
+	if (utc_to_local(dateSent, sizeof(dateSent), args.lastMessageDateSent) != 0)
 		return HTTP_BAD_REQUEST; // invalid date format
 
 	char buffer[1024];
 	RoomInfo room;
 
-	apr_status_t status = get_room_info(c, &room, buffer, roomId, groupId, joinKey);
+	apr_status_t status = get_room_info(c, &room, args, buffer);
 	if (status != OK)
 		return http_problem(c, NULL, buffer, status);
 
-	struct messages_callback context = {.messages = json_new_array()};
+	struct messages_callback context = {
+		.signedInUserId = args.userId,
+		.messages = json_new_array()
+	};
 
 	DbQuery query = {.dbc = &c->dbc};
 	query.sql = messages_sql;
@@ -168,9 +186,6 @@ static apr_status_t get_messages(HttpContext *c)
 	JsonValue argv[2];
 	argv[query.argc++] = json_new_int(room.id, false);
 	argv[query.argc++] = json_new_str(dateSent, false);
-
-	if (c->identity.authenticated)
-		context.userId = atoi(c->identity.sub);
 
 	if (sql_exec(&query, argv) != 0)
 	{
@@ -279,10 +294,12 @@ static apr_status_t send_message(HttpContext *c)
 		goto finish;
 	}
 
-	int roomId = (int)json_get_number(msg, "roomId");
+	UrlArgs args;
+	args.userId = atoi(c->identity.sub);
+	args.roomId = (int)json_get_number(msg, "roomId");
 
 	RoomInfo room;
-	status = get_room_info(c, &room, buffer, roomId, 0, 0);
+	status = get_room_info(c, &room, args, buffer);
 	if (status != OK)
 		goto finish;
 
@@ -501,20 +518,11 @@ static apr_status_t hide_message_from_ai(HttpContext *c)
 
 static apr_status_t join_group(HttpContext *c)
 {
-	int roomId = 0, groupId = 0, joinKey = 0;
-
-	KeyValuePair x;
-	while ((x = get_next_url_query_argument(&c->request_args, '&', true)).key != NULL)
-	{
-		KVP_TO_INT(x, roomId, "r")
-		KVP_TO_INT(x, groupId, "g")
-		KVP_TO_INT(x, joinKey, "k")
-	}
-
+	UrlArgs args = get_url_args(c);
 	char buffer[1024];
 	RoomInfo room;
 
-	apr_status_t status = get_room_info(c, &room, buffer, roomId, groupId, joinKey);
+	apr_status_t status = get_room_info(c, &room, args, buffer);
 	if (status != OK)
 		return http_problem(c, NULL, buffer, status);
 
@@ -524,11 +532,9 @@ static apr_status_t join_group(HttpContext *c)
 	DbQuery query = {.dbc = &c->dbc};
 	query.sql = "INSERT INTO GroupMembers (GroupId, MemberId) VALUES (?, ?)";
 
-	int userId = str_to_int(c->identity.sub);
-
 	JsonValue argv[2];
 	argv[query.argc++] = json_new_int(room.groupId, false);
-	argv[query.argc++] = json_new_int(userId, false);
+	argv[query.argc++] = json_new_int(args.userId, false);
 
 	if (sql_exec(&query, argv) != 0)
 	{
@@ -543,17 +549,9 @@ static apr_status_t chat_page(HttpContext *c)
 {
 	c->constants.layout_file = NO_LAYOUT_FILE;
 
-	int roomId = 0, groupId = 0, joinKey = 0;
+	UrlArgs args = get_url_args(c);
 
-	KeyValuePair x;
-	while ((x = get_next_url_query_argument(&c->request_args, '&', true)).key != NULL)
-	{
-		KVP_TO_INT(x, roomId, "r")
-		KVP_TO_INT(x, groupId, "g")
-		KVP_TO_INT(x, joinKey, "k")
-	}
-
-	if (roomId == 0 && groupId == 0)
+	if (args.roomId == 0 && args.groupId == 0)
 	{
 		set_page_title(c, "DRIIMA");
 		return process_view(c);
@@ -562,7 +560,7 @@ static apr_status_t chat_page(HttpContext *c)
 	char buffer[1024];
 	RoomInfo room;
 
-	apr_status_t status = get_room_info(c, &room, buffer, roomId, groupId, joinKey);
+	apr_status_t status = get_room_info(c, &room, args, buffer);
 	if (status != OK)
 		return http_problem(c, NULL, buffer, status);
 
