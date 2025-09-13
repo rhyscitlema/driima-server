@@ -6,11 +6,13 @@ import { _fetch, sendData, showProblemDetail } from 'fetch';
 
 function roomSelected(e) {
 	const params = new URLSearchParams();
-	params.set("g", e.target.dataset.id);
+	params.set("r", e.target.dataset.id);
 	openChatPage(params);
 };
 
-async function fetchRooms(container) {
+let page_content = null;
+
+async function fetchRooms() {
 	const response = await _fetch("/api/rooms");
 
 	if (!response.ok) {
@@ -28,13 +30,16 @@ async function fetchRooms(container) {
 		events: { "click": roomSelected }
 	}));
 
-	updateElement(container, { content });
+	updateElement(page_content, { content });
 }
 
 export default function openHomePage() {
 	const page = openPage('home', { level: 1 });
-	if (page.childElementCount)
+	if (page.childElementCount) {
+		fetchRooms();
 		return;
+	}
+	page.addEventListener("page-back", fetchRooms);
 	page.classList.add("flex-column");
 
 	const content = [
@@ -56,7 +61,10 @@ export default function openHomePage() {
 		{
 			tag: "div", class: "page-content",
 			content: [{ text: "Loading..." }],
-			callback: (elem) => fetchRooms(elem)
+			callback: (elem) => {
+				page_content = elem;
+				fetchRooms();
+			}
 		}
 	];
 	updateElement(page, { content });
