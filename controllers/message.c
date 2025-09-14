@@ -255,7 +255,17 @@ errno_t add_message(DbContext *dbc, Message m, char id[GUID_STORE])
 
 	errno_t e = sql_exec(&query, argv);
 	if (e != 0)
+	{
 		APP_LOG(LOG_ERROR, "Failed to add the message");
+	}
+	else
+	{
+		query.sql = "UPDATE Rooms SET LatestMessageId = UNHEX(?) WHERE Id = ?";
+		query.argc = 0;
+		argv[query.argc++] = json_new_str(id, false);
+		argv[query.argc++] = json_new_int(m.roomId, false);
+		sql_exec(&query, argv);
+	}
 	return e;
 }
 
