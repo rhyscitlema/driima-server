@@ -1,41 +1,5 @@
-/* Reset & Base Styles */
-
-html, body, main {
-	height: 100%;
-}
-
-body {
-	margin: 0;
-	background-color: #ece5dd;
-	font-family: Arial, sans-serif;
-}
-
-.flex-column {
-	display: flex;
-	flex-direction: column;
-}
-
-/* Header */
-.page-header {
-	background-color: #075e54;
-	color: #fff;
-	padding: 15px;
-	font-size: 20px;
-}
-
-.page-content {
-	flex-grow: 1;
-	overflow-y: auto;
-	padding: 10px;
-}
-
-.app-language {
-	float: right;
-	border-color: transparent;
-	border-radius: 4px;
-}
-
 /* Message Bubble Styles */
+
 .message {
 	margin-bottom: 10px;
 	max-width: 90%;
@@ -78,21 +42,22 @@ body {
 }
 
 .date-separator {
+	margin-top: 1em;
+	margin-bottom: 1em;
 	text-align: center;
 }
 
 .date-separator span {
 	padding: 6px 12px;
 	border-radius: 6px;
-	background-color: white;
-	color: #555;
+	background-color: yellow;
 }
 
 /* Reply Button in Message Bubble */
 .reply-btn {
 	cursor: pointer;
 	background: transparent;
-	color: #075e54;
+	color: var(--primary);
 	border: none;
 	margin-right: 8px;
 }
@@ -102,6 +67,7 @@ body {
 	border-left: 3px solid #ccc;
 	padding-left: 5px;
 	margin-top: 1em;
+	margin-bottom: 1em;
 	font-size: 12px;
 	color: #555;
 }
@@ -127,17 +93,14 @@ body {
 
 .send-btn {
 	margin-left: 10px;
-	padding: 10px 20px;
-	font-size: 14px;
-	background-color: #075e54;
-	color: white;
+	font-size: 2em;
+	color: var(--primary);
 	border: none;
-	border-radius: 4px;
-	cursor: pointer;
+	background-color: transparent;
 }
 
 .send-btn:hover {
-	background-color: #0b7a64;
+	color: var(--primary-light);
 }
 
 /* Reply Preview Box */

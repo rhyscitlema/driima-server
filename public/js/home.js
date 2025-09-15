@@ -18,20 +18,22 @@ function getRoomUI(info) {
 		!info.latestMessage ? { tag: "i", text: "(deleted message)" } :
 		{ text: info.latestMessage };
 
-	const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><circle cx="100" cy="100" r="70" fill="grey"/></svg>';
-	const avatar = info.logo || "data:image/svg+xml;base64," + btoa(svg);
+	const avatar = info.logo ?
+		{ tag: "img", class: "avatar", alt: "profile", src: info.logo }
+		: {
+			tag: "div", class: "avatar",
+			content: [{ tag: "i", class: "bi bi-people-fill", style: "font-size: 2em" }]
+		};
 
 	return [
-		{
-			tag: "img", class: "avatar", alt: "profile", src: avatar
-		},
+		avatar,
 		{
 			tag: "div", class: "chat-room-info",
 			content: [
 				{
 					tag: "div", class: "info-body",
 					content: [
-						{ tag: "h4", class: "room-name", html: name },
+						{ tag: "h5", class: "room-name", html: name },
 						{ tag: "p", class: "latest-message", content: [latest] }
 					]
 				}
@@ -76,7 +78,7 @@ export default function openHomePage() {
 		{
 			tag: "div", class: "page-header",
 			content: [
-				{ tag: "span", text: "DRIIMA" },
+				{ tag: "span", html: "DRIIMA" },
 				{
 					tag: "select", class: "app-language",
 					props: { value: currentLanguage },

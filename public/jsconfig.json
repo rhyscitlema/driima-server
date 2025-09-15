@@ -12,16 +12,16 @@
 				"js/chat.js"
 			],
 			"spart": [
-				"lib/spart/spart.js"
+				"spart/spart.js"
 			],
 			"fetch": [
-				"lib/spart/fetch.js"
+				"spart/fetch.js"
 			],
 			"pages": [
-				"lib/spart/pages.js"
+				"spart/pages.js"
 			],
 			"i18n": [
-				"lib/spart/i18n.js"
+				"spart/i18n.js"
 			]
 		}
 	},

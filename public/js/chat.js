@@ -156,7 +156,8 @@ class PageInfo {
 						callback: (elem) => this.messageInput = elem
 					},
 					{
-						tag: "button", class: "send-btn", text: "Send",
+						tag: "button", title: "Send",
+						class: "bi bi-send-fill send-btn",
 						events: { "click": this.sendMessage.bind(this) }
 					}
 				]
@@ -168,7 +169,9 @@ class PageInfo {
 				tag: "div", style: "padding: 1em; text-align: center;",
 				content: [
 					{
-						tag: "button", text: "Join this group",
+						tag: "button",
+						class: "btn btn-success",
+						text: "Join this group",
 						events: { "click": this.joinGroup.bind(this) }
 					}
 				]
@@ -237,8 +240,8 @@ class PageInfo {
 				tag: "div", class: "page-header",
 				content: [
 					{
-						tag: "button", class: "back-btn", text: "Back",
-						style: "margin-right: 14px",
+						tag: "i", class: "bi bi-arrow-left-circle",
+						title: "Back", style: "margin-right: 14px",
 						events: { "click": this.navigateBack.bind(this) }
 					},
 					{ tag: "span", callback: (elem) => this.titleElem = elem }
@@ -426,7 +429,7 @@ class PageInfo {
 			),
 			{
 				tag: 'div', class: 'content',
-				callback: (elem) => convertMarkdownText(elem, message.content)
+				callback: (elem) => convertMarkdownText(elem, message.content, true)
 			},
 			{
 				tag: 'div', class: 'message-footer',
