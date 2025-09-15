@@ -599,10 +599,15 @@ static apr_status_t home_page(HttpContext *c)
 	return http_redirect(c, "/chat", HTTP_MOVED_TEMPORARILY, true);
 }
 
+static apr_status_t anonymous_chat(HttpContext *c)
+{
+	return http_redirect(c, "/chat", HTTP_INTERNAL_REDIRECT, true);
+}
+
 void register_message_controller()
 {
 	CHECK_ERRNO;
-	add_endpoint(M_GET, "/anonymous/chat", home_page, 0); // obsolete
+	add_endpoint(M_GET, "/anonymous/chat", anonymous_chat, 0); // obsolete
 	add_endpoint(M_GET, "/", home_page, 0);
 	add_endpoint(M_GET, "/chat", chat_page, 0);
 
