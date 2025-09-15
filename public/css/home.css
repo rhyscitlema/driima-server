@@ -1,0 +1,46 @@
+
+.chat-room {
+	display: flex;
+	padding: 0.75em;
+	cursor: pointer;
+}
+
+.chat-room:hover {
+	background-color: #ebebeb;
+}
+
+.chat-room * {
+	margin: 0;
+}
+
+.chat-room-info {
+	margin-left: 16px;
+	width: 0;
+	flex-grow: 1;
+	display: flex;
+	justify-content: space-between;
+}
+
+.chat-room-info .info-body {
+	align-self: center;
+	width: 100%; /* needed */
+}
+
+.chat-room-info .room-name {
+	margin-bottom: 8px;
+}
+
+.chat-room-info .latest-message {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	min-width: 10rem;
+}
+
+.avatar {
+	width: 50px;
+	height: 50px;
+	border-radius: 50%;
+	object-fit: cover;
+	border: 1px solid white;
+}

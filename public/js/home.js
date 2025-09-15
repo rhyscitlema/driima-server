@@ -6,9 +6,39 @@ import { _fetch, sendData, showProblemDetail } from 'fetch';
 
 function roomSelected(e) {
 	const params = new URLSearchParams();
-	params.set("r", e.target.dataset.id);
+	params.set("r", e.currentTarget.dataset.id);
 	openChatPage(params);
 };
+
+function getRoomUI(info) {
+	const name = info.roomName || info.groupName;
+
+	const latest =
+		!info.latestDateSent ? { tag: "i", text: "(no message)" }:
+		!info.latestMessage ? { tag: "i", text: "(deleted message)" } :
+		{ text: info.latestMessage };
+
+	const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><circle cx="100" cy="100" r="70" fill="grey"/></svg>';
+	const avatar = info.logo || "data:image/svg+xml;base64," + btoa(svg);
+
+	return [
+		{
+			tag: "img", class: "avatar", alt: "profile", src: avatar
+		},
+		{
+			tag: "div", class: "chat-room-info",
+			content: [
+				{
+					tag: "div", class: "info-body",
+					content: [
+						{ tag: "h4", class: "room-name", html: name },
+						{ tag: "p", class: "latest-message", content: [latest] }
+					]
+				}
+			]
+		}
+	];
+}
 
 let page_content = null;
 
@@ -26,7 +56,7 @@ async function fetchRooms() {
 		tag: "div",
 		class: "chat-room",
 		"data-id": x.roomId,
-		content: [{ text: x.groupName }],
+		content: getRoomUI(x),
 		events: { "click": roomSelected }
 	}));
 
@@ -52,15 +82,17 @@ export default function openHomePage() {
 					props: { value: currentLanguage },
 					events: { "change": (e) => changeLanguage(e.target.value)},
 					content: [
-						{ value: "en", text: "EN" },
-						{ value: "fr", text: "FR" }
+						{ value: "en", html: "EN" },
+						{ value: "fr", html: "FR" }
 					]
 				}
 			]
 		},
 		{
-			tag: "div", class: "page-content",
-			content: [{ text: "Loading..." }],
+			tag: "div",
+			class: "page-content",
+			style: "padding: 0",
+			html: "...",
 			callback: (elem) => {
 				page_content = elem;
 				fetchRooms();

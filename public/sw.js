@@ -16,6 +16,7 @@ const appAssets = [
 	"/lib/prism/prism.js",
 	"/lib/prism/prism.css",
 	"/css/login.css",
+	"/css/home.css",
 	"/css/chat.css",
 	"/js/login.js",
 	"/js/home.js",
