@@ -2,6 +2,9 @@
 	"compilerOptions": {
 		"baseUrl": ".",
 		"paths": {
+			"store": [
+				"js/store.js"
+			],
 			"login": [
 				"js/login.js"
 			],

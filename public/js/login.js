@@ -1,4 +1,4 @@
-import { openPage } from 'pages';
+import openPage from 'pages';
 import openHomePage from 'home';
 import openChatPage from 'chat';
 import { setup, toast, createElement, updateElement } from 'spart';
@@ -104,12 +104,11 @@ async function handleLogin() {
 	else showProblemDetail(response);
 }
 
-async function onAuthenticated() {
-	await openHomePage();
-
+function onAuthenticated() {
+	const homePage = openHomePage();
 	const params = new URLSearchParams(window.location.search);
-	if (params.get("g") || params.get("r"))
-		await openChatPage(params);
+	const openChat = params.get("g") || params.get("r");
+	return openChat ? openChatPage(params) : homePage;
 }
 
 // Initialize the chat application

@@ -1,3 +1,4 @@
+import store from 'store';
 import openChatPage from 'chat';
 import { openPage } from 'pages';
 import { currentLanguage, changeLanguage } from 'i18n';
@@ -44,17 +45,25 @@ function getRoomUI(info) {
 
 let page_content = null;
 
-async function fetchRooms() {
-	const response = await _fetch("/api/rooms");
+function setRooms(rooms) {
+	if (rooms == null) {
+		return fetchRooms();
+	}
+	let content;
 
-	if (!response.ok) {
-		showProblemDetail(response);
+	if (rooms.length == 0) {
+		content = [{
+			tag: "div",
+			class: "chat-room",
+			"data-id": 1,
+			text: "Visit anonymous group",
+			events: { "click": roomSelected }
+		}];
+		updateElement(page_content, { content });
 		return;
 	}
 
-	const data = await response.json();
-
-	const content = data.rooms.map((x) => ({
+	content = rooms.map((x) => ({
 		tag: "div",
 		class: "chat-room",
 		"data-id": x.roomId,
@@ -65,10 +74,22 @@ async function fetchRooms() {
 	updateElement(page_content, { content });
 }
 
+async function fetchRooms() {
+	const response = await _fetch("/api/rooms");
+
+	if (!response.ok) {
+		showProblemDetail(response);
+		return []; // pretend an empty list
+	}
+
+	const data = await response.json();
+	store.putRooms(data.rooms);
+	setRooms(data.rooms);
+}
+
 export default function openHomePage() {
 	const page = openPage('home', { level: 1 });
 	if (page.childElementCount) {
-		fetchRooms();
 		return;
 	}
 	page.addEventListener("page-back", fetchRooms);
@@ -94,13 +115,11 @@ export default function openHomePage() {
 			tag: "div",
 			class: "page-content",
 			style: "padding: 0",
-			html: "...",
-			callback: (elem) => {
-				page_content = elem;
-				fetchRooms();
-			}
+			callback: (elem) => page_content = elem
 		}
 	];
 	updateElement(page, { content });
+
+	return store.getRooms().then(setRooms);
 }
 

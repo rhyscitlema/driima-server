@@ -1,7 +1,8 @@
+import store from 'store';
+import openPage from 'pages';
 import { toast, createElement, updateElement, createSVGElement } from 'spart';
 import { _fetch, sendData, showProblemDetail } from 'fetch';
 import { tl } from 'i18n';
-import { openPage, popPage } from 'pages';
 
 const optionsButtonSvgElem = createSVGElement(svgStrings.optionsButton);
 
@@ -47,10 +48,10 @@ function getMessageTimeSent(message) {
 }
 
 class PageInfo {
-	constructor(page, search) {
+	constructor(page, search, roomId) {
 		this.messagesMap = {}; // messages stored by id for re-use
 		this.search = search;
-		this.room = {};
+		this.room = { id: roomId };
 
 		// DOM elements
 		this.page = page;
@@ -75,7 +76,7 @@ class PageInfo {
 
 	navigateBack(event) {
 		clearInterval(this.timerId);
-		popPage();
+		window.history.back();
 	}
 
 	// Auto-scroll the chat container to the bottom
@@ -208,11 +209,20 @@ class PageInfo {
 		// process the successful response
 		const content = await response.json();
 
+		store.putMessages(content);
+		this.setMessages(content);
+
+		this.fetching = false;
+	}
+
+	setMessages(content) {
 		const room = content.roomInfo;
+
 		this.changeSkippedMessage(room.skippedMessageId);
 		// above must come before below
 
-		if (!this.room.id) {
+		const firstTime = !this.room.name;
+		if (firstTime) {
 			this.room = room;
 			this.titleElem.textContent = room.name;
 			this.setPageFooter();
@@ -228,10 +238,10 @@ class PageInfo {
 					this.lastMessageDateSent = message.dateSent;
 				}
 			});
-			this.scrollToBottom();
-		}
 
-		this.fetching = false;
+			if (firstTime)
+				this.scrollToBottom();
+		}
 	}
 
 	initPage() {
@@ -258,8 +268,13 @@ class PageInfo {
 		];
 		updateElement(this.page, { content });
 
-		this.timerId = setInterval(this.fetchMessages.bind(this), 4000);
-		return this.fetchMessages().then(() => {
+		return store.getMessages(this.room.id).then((content) => {
+			if (content)
+				this.setMessages(content);
+			else
+				return this.fetchMessages();
+		}).then(() => {
+			this.timerId = setInterval(this.fetchMessages.bind(this), 4000);
 		});
 	}
 
@@ -468,7 +483,10 @@ export default function openChatPage(params) {
 		console.warn("How did we get here?");
 		return;
 	}
+
 	const search = params.toString();
-	const x = new PageInfo(page, search);
+	const roomId = Number(params.get('r'));
+
+	const x = new PageInfo(page, search, roomId);
 	return x.initPage();
 }
