@@ -1,3 +1,4 @@
+import store from 'store';
 import openChatPage from 'chat';
 import { openPage } from 'pages';
 import { currentLanguage, changeLanguage } from 'i18n';
@@ -44,17 +45,17 @@ function getRoomUI(info) {
 
 let page_content = null;
 
-async function fetchRooms() {
-	const response = await _fetch("/api/rooms");
-
-	if (!response.ok) {
-		showProblemDetail(response);
+function setRooms(rooms) {
+	if (rooms == null) {
+		store.fetchRooms(setRooms);
+		return;
+	}
+	if (rooms.length == 0) {
+		page_content.innerHTML = "<p>You are not joined to any group!</p>";
 		return;
 	}
 
-	const data = await response.json();
-
-	const content = data.rooms.map((x) => ({
+	const content = rooms.map((x) => ({
 		tag: "div",
 		class: "chat-room",
 		"data-id": x.roomId,
@@ -68,10 +69,9 @@ async function fetchRooms() {
 export default function openHomePage() {
 	const page = openPage('home', { level: 1 });
 	if (page.childElementCount) {
-		fetchRooms();
 		return;
 	}
-	page.addEventListener("page-back", fetchRooms);
+	page.addEventListener("page-back", () => store.fetchRooms(setRooms));
 	page.classList.add("flex-column");
 
 	const content = [
@@ -97,7 +97,7 @@ export default function openHomePage() {
 			html: "...",
 			callback: (elem) => {
 				page_content = elem;
-				fetchRooms();
+				store.getRooms().then(setRooms);
 			}
 		}
 	];
