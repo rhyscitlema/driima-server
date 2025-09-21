@@ -61,7 +61,8 @@
 			isProgressiveWebApp: true,
 			i18nAssetsVersion: "1.0"
 		});
-		document.getElementById("app-loading-indicator")?.remove();
+
+		document.getElementById("app-loading-indicator").hidden = true;
 
 		if ('serviceWorker' in navigator) {
 			navigator.serviceWorker.register("/sw.js")

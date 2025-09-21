@@ -267,6 +267,10 @@ class PageInfo {
 		];
 		updateElement(this.page, { content });
 
+		const indicator = document.getElementById("app-loading-indicator");
+		const wasHidden = indicator.hidden;
+		if (wasHidden) indicator.hidden = false;
+
 		return store.getMessages(this.room.id).then((content) => {
 			if (content)
 				this.setMessages(content);
@@ -274,6 +278,7 @@ class PageInfo {
 				return this.fetchMessages();
 		}).then(() => {
 			this.timerId = setInterval(this.fetchMessages.bind(this), 4000);
+			if (wasHidden) indicator.hidden = true;
 		});
 	}
 
