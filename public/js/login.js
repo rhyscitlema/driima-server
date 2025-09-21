@@ -112,8 +112,8 @@ function onAuthenticated() {
 }
 
 // Initialize the chat application
-export async function initializeApp() {
-	await setup({ isProgressiveWebApp: true });
+export async function initializeApp(config) {
+	await setup(config);
 
 	if (isAuthenticated()) {
 		await onAuthenticated();

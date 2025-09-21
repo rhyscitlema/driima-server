@@ -57,12 +57,15 @@
 	<script type="module">
 		import { initializeApp } from 'login';
 
-		await initializeApp();
+		await initializeApp({
+			isProgressiveWebApp: true,
+			i18nAssetsVersion: "1.0"
+		});
 		document.getElementById("app-loading-indicator")?.remove();
 
 		if ('serviceWorker' in navigator) {
 			navigator.serviceWorker.register("/sw.js")
-				.then(reg => console.debug("Service Worker registered"))
+				.then(reg => console.debug("Ready!"))
 				.catch(err => console.error("SW registration failed:", err));
 		}
 	</script>
