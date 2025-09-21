@@ -74,11 +74,6 @@ class PageInfo {
 		this.latestMsgDate = '';
 	}
 
-	navigateBack(event) {
-		clearInterval(this.timerId);
-		window.history.back();
-	}
-
 	// Auto-scroll the chat container to the bottom
 	scrollToBottom() {
 		this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
@@ -245,6 +240,10 @@ class PageInfo {
 	}
 
 	initPage() {
+		this.page.addEventListener("page-left", () => {
+			clearInterval(this.timerId);
+		});
+
 		const content = [
 			{
 				tag: "div", class: "page-header",
@@ -252,7 +251,7 @@ class PageInfo {
 					{
 						tag: "i", class: "bi bi-arrow-left-circle",
 						title: "Back", style: "margin-right: 14px",
-						events: { "click": this.navigateBack.bind(this) }
+						events: { "click": () => window.history.back() }
 					},
 					{ tag: "span", callback: (elem) => this.titleElem = elem }
 				]
