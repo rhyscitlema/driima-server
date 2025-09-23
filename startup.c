@@ -1,4 +1,4 @@
-#include "startup.h"
+#include "controllers/base.h"
 
 /* Called by only one server process at a time to avoid a race condition. */
 static apr_status_t prepare_database(HttpContext *c)

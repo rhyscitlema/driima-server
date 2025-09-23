@@ -151,7 +151,7 @@ static apr_status_t logout(HttpContext *c)
 	return HTTP_NO_CONTENT;
 }
 
-void register_account_controller()
+void register_account_controller(void)
 {
 	add_endpoint(M_POST, "/api/account/login", login, Endpoint_IsaWebAPI);
 	add_endpoint(M_POST, "/api/account/logout", logout, Endpoint_AuthWebAPI);

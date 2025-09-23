@@ -23,7 +23,8 @@ INCLUDE_FILES = ./*.h $(LIBAPP)src/*.h $(LIBWEB)src/*.h \
 
 # compiler flags
 BASIC_FLAGS = -std=c99 -g -Wall -Wextra -Wconversion -Wwrite-strings -pedantic
-WARN_TO_ERROR = -Werror=implicit-function-declaration -Werror=implicit-int -Wincompatible-pointer-types
+WARN_TO_ERROR = -Werror=implicit-function-declaration -Werror=implicit-int \
+	-Wincompatible-pointer-types -Wstrict-prototypes -Werror=strict-prototypes
 SECURITY_FLAGS = -Wformat -Werror=format-security -fstack-protector-strong
 ADVANCED_FLAGS = -fPIC -fvisibility=hidden
 DEFINITIONS = '-D__LIB__="$(SITE_NAME)"' -D_REENTRANT

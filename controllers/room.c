@@ -70,7 +70,7 @@ static apr_status_t get_rooms(HttpContext *c)
 	return process_model(c, HTTP_OK);
 }
 
-void register_room_controller()
+void register_room_controller(void)
 {
 	CHECK_ERRNO;
 	add_endpoint(M_GET, "/api/rooms", get_rooms, Endpoint_AuthWebAPI);

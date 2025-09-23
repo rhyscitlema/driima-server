@@ -1,5 +1,6 @@
 #include <ctype.h>
 #include "base.h"
+#include "../models/message.h"
 
 typedef struct UrlArgs
 {
@@ -604,7 +605,7 @@ static apr_status_t anonymous_chat(HttpContext *c)
 	return http_redirect(c, "/chat", HTTP_INTERNAL_REDIRECT, true);
 }
 
-void register_message_controller()
+void register_message_controller(void)
 {
 	CHECK_ERRNO;
 	add_endpoint(M_GET, "/anonymous/chat", anonymous_chat, 0); // obsolete
