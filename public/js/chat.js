@@ -25,21 +25,6 @@ function showOptions(event) {
 		setTimeout(() => event.target.blur(), 200);
 }
 
-function quitOptions(event) {
-	event.target.closest("button").blur();
-}
-
-function onCopyMessage(message, e) {
-	navigator.clipboard.writeText(message.content)
-		.then(() => {
-			quitOptions(e);
-		})
-		.catch(error => {
-			toast("Failed to copy the message");
-			console.error(error);
-		});
-}
-
 function getMessageTimeSent(message) {
 	const date = new Date(message.dateSent);
 	const hh = String(date.getHours()).padStart(2, '0');
@@ -57,11 +42,11 @@ class PageInfo {
 		this.page = page;
 		this.chatContainer = null;
 		this.pageFooter = null;
+		this.readAloudElem = null;
 		this.messageInput = null;
 		this.titleElem = null;
 
 		// parent message to reply to
-		this.replyMsgId = null;
 		this.replyText = null;
 		this.replyPreview = null;
 
@@ -87,7 +72,7 @@ class PageInfo {
 		// Build the message payload
 		const payload = {
 			roomId: this.room.id,
-			parentId: this.replyMsgId,
+			parentId: this.replyPreview.dataset.id,
 			content: content
 		};
 		sendData('/api/message/send', 'POST', payload).then(response => {
@@ -95,7 +80,9 @@ class PageInfo {
 				// Clear input and reset reply state
 				this.messageInput.value = "";
 				this.cancelReply();
-				this.fetchMessages(); // Fetch the new message immediately
+
+				// Fetch the new message immediately
+				this.fetchMessages();
 
 				return response.json().then(info => {
 					if (info.ai_is_busy) {
@@ -119,17 +106,50 @@ class PageInfo {
 		e.target.disabled = false;
 	}
 
+	playAudio(blob) {
+		const audio = this.readAloudElem.querySelector("audio");
+		if (audio.src) // if one already loaded
+			this.cancelAudio();
+		audio.src = URL.createObjectURL(blob);
+		audio.play(); // start playback
+		this.readAloudElem.hidden = false;
+	}
+
+	cancelAudio() {
+		const audio = this.readAloudElem.querySelector("audio");
+		if (audio.src) {
+			audio.pause();
+			URL.revokeObjectURL(audio.src);
+			audio.removeAttribute('src');
+			audio.load(); // reset the element
+		}
+		this.readAloudElem.hidden = true;
+	}
+
 	// Cancel the current reply
 	cancelReply() {
-		this.replyMsgId = null;
-		this.replyPreview.classList.add("hidden");
+		this.replyPreview.dataset.id = null;
+		this.replyPreview.hidden = true;
 		this.replyText.textContent = "";
 	}
 
 	setPageFooter() {
 		let content = [
 			{
-				tag: "div", class: "reply-preview hidden",
+				tag: "div", class: "audio-playback", hidden: true,
+				callback: (elem) => this.readAloudElem = elem,
+				content: [
+					{
+						tag: "audio", controls: true
+					},
+					{
+						tag: "button", class: "cancel", html: "x",
+						events: { "click": this.cancelAudio.bind(this) }
+					}
+				]
+			},
+			{
+				tag: "div", class: "reply-preview", hidden: true,
 				callback: (elem) => this.replyPreview = elem,
 				content: [
 					{
@@ -138,7 +158,7 @@ class PageInfo {
 						callback: (elem) => this.replyText = elem
 					},
 					{
-						tag: "button", class: "cancel-reply", text: "x",
+						tag: "button", class: "cancel", html: "x",
 						events: { "click": this.cancelReply.bind(this) }
 					}
 				]
@@ -242,6 +262,7 @@ class PageInfo {
 	initPage() {
 		this.page.addEventListener("page-left", () => {
 			clearInterval(this.timerId);
+			this.cancelAudio();
 		});
 
 		const content = [
@@ -282,6 +303,22 @@ class PageInfo {
 		});
 	}
 
+	getMessageFromEvent(event) {
+		event.target.closest("button").blur(); // quit options
+		const elem = event.target.closest(".message");
+		return this.messagesMap[elem.id];
+	}
+
+	onCopyMessage(e) {
+		const message = this.getMessageFromEvent(e);
+		navigator.clipboard.writeText(message.content)
+			.then(() => console.debug("Copied!"))
+			.catch(error => {
+				toast("Failed to copy the message");
+				console.error(error);
+			});
+	}
+
 	setReplySnippet(elem, messageId) {
 		const message = this.messagesMap[messageId];
 		if (deletedMessage(message)) {
@@ -295,24 +332,27 @@ class PageInfo {
 			msg = msg.slice(0, maxLength) + "...";
 
 		const sender = message.senderName;
+		const tag = isAI(sender) ? 'span' : null;
 		const content = [
-			{ text: sender, tag: isAI(sender) ? 'span' : null },
+			{ text: sender, tag },
 			{ text: ": " + msg }
 		];
 		updateElement(elem, { content });
 		elem.dataset.messageId = messageId;
 	}
 
-	onReplyButton(message) {
+	onReplyButton(e) {
 		if (!this.room.joined) {
 			toast("Join this group");
 			return;
 		}
-		this.replyMsgId = message.id;
-		this.setReplySnippet(this.replyText, message.id);
-		this.replyPreview.classList.remove("hidden");
-		const mi = this.messageInput;
+		const message = this.getMessageFromEvent(e);
 
+		this.setReplySnippet(this.replyText, message.id);
+		this.replyPreview.dataset.id = message.id;
+		this.replyPreview.hidden = false;
+
+		const mi = this.messageInput;
 		if (!mi.value) {
 			const sender = message.senderName;
 			if (isAI(sender))
@@ -321,8 +361,18 @@ class PageInfo {
 		mi.focus();
 	}
 
-	onDeleteMessage(message, e) {
-		quitOptions(e);
+	onReadAloud(e) {
+		const message = this.getMessageFromEvent(e);
+		const url = "/api/message/read-aloud?id=" + message.id;
+		_fetch(url).then((response) => {
+			if (response.ok)
+				return response.blob().then(this.playAudio.bind(this));
+			else showProblemDetail(response);
+		});
+	}
+
+	onDeleteMessage(e) {
+		const message = this.getMessageFromEvent(e);
 		if (confirm(tl("Please confirm you want to delete"))) {
 			const url = "/api/message/delete?id=" + message.id;
 			_fetch(url, { method: "DELETE" }).then((response) => {
@@ -357,8 +407,8 @@ class PageInfo {
 		}
 	}
 
-	onHideFromAI(message, e) {
-		quitOptions(e);
+	onHideFromAI(e) {
+		const message = this.getMessageFromEvent(e);
 
 		if (!localStorage.firstHideFromAI) {
 			localStorage.firstHideFromAI = Date.now();
@@ -403,18 +453,19 @@ class PageInfo {
 
 	createMessageOptionsButton(message) {
 		const options = [
-			{ text: "Copy", events: { 'click': (e) => onCopyMessage(message, e) } },
-			{ text: "Reply", events: { 'click': () => this.onReplyButton(message) } },
+			{ text: "Copy", events: { 'click': this.onCopyMessage.bind(this) } },
+			{ text: "Reply", events: { 'click': this.onReplyButton.bind(this) } },
+			{ text: "Read Aloud", events: { 'click': this.onReadAloud.bind(this) } },
 		];
 
 		if (this.sentOrCausedByMe(message)) {
 			options.push({
 				text: "Delete", class: "delete-msg",
-				events: { 'click': (e) => this.onDeleteMessage(message, e) }
+				events: { 'click': this.onDeleteMessage.bind(this) }
 			});
 			options.push({
 				text: "Hide from AI", class: "hide-from-ai",
-				events: { 'click': (e) => this.onHideFromAI(message, e) }
+				events: { 'click': this.onHideFromAI.bind(this) }
 			});
 		}
 

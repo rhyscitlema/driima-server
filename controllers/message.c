@@ -463,7 +463,18 @@ static apr_status_t sent_or_caused_by_me(HttpContext *c, const char *id)
 	return OK;
 }
 
-static apr_status_t get_and_validate_message_id(HttpContext *c, char id[GUID_STORE])
+static apr_status_t validate_message_id(HttpContext *c, const char *id)
+{
+	if (str_empty(id))
+		return http_problem(c, NULL, tl("Message id not provided"), HTTP_BAD_REQUEST);
+
+	else if (!is_sql_safe(id, GUID_STORE))
+		return http_problem(c, NULL, tl("Invalid message id provided"), HTTP_BAD_REQUEST);
+
+	else return OK;
+}
+
+static apr_status_t get_and_validate_message_id(HttpContext *c, char id[GUID_STORE], bool check_if_from_me)
 {
 	id[0] = '\0'; // clear first
 	KeyValuePair pair;
@@ -474,20 +485,19 @@ static apr_status_t get_and_validate_message_id(HttpContext *c, char id[GUID_STO
 			str_copy(id, GUID_STORE, pair.value);
 	}
 
-	if (str_empty(id))
-		return http_problem(c, NULL, tl("Message id not provided"), HTTP_BAD_REQUEST);
+	apr_status_t status = validate_message_id(c, id);
 
-	if (!is_sql_safe(id, GUID_STORE))
-		return http_problem(c, NULL, tl("Invalid message id provided"), HTTP_BAD_REQUEST);
+	if (status == OK && check_if_from_me)
+		status = sent_or_caused_by_me(c, id);
 
-	return sent_or_caused_by_me(c, id);
+	return status;
 }
 
 static apr_status_t delete_message(HttpContext *c)
 {
 	char id[GUID_STORE];
 
-	apr_status_t status = get_and_validate_message_id(c, id);
+	apr_status_t status = get_and_validate_message_id(c, id, true);
 	if (status != OK)
 		return status;
 
@@ -507,7 +517,7 @@ static apr_status_t hide_message_from_ai(HttpContext *c)
 {
 	char id[GUID_STORE];
 
-	apr_status_t status = get_and_validate_message_id(c, id);
+	apr_status_t status = get_and_validate_message_id(c, id, true);
 	if (status != OK)
 		return status;
 
@@ -525,6 +535,17 @@ static apr_status_t hide_message_from_ai(HttpContext *c)
 		return http_problem(c, NULL, tl("Failed to hide the message from AI"), 500);
 
 	return HTTP_NO_CONTENT;
+}
+
+static apr_status_t read_aloud(HttpContext *c)
+{
+	char id[GUID_STORE];
+
+	apr_status_t status = get_and_validate_message_id(c, id, false);
+	if (status != OK)
+		return status;
+
+	return http_redirect(c, "/audio/example.mp3", HTTP_INTERNAL_REDIRECT, false);
 }
 
 static apr_status_t join_group(HttpContext *c)
@@ -619,4 +640,5 @@ void register_message_controller(void)
 	add_endpoint(M_POST, "/api/message/send", send_message, Endpoint_AuthWebAPI);
 	add_endpoint(M_DELETE, "/api/message/delete", delete_message, Endpoint_AuthWebAPI);
 	add_endpoint(M_PATCH, "/api/message/hide-from-ai", hide_message_from_ai, Endpoint_AuthWebAPI);
+	add_endpoint(M_GET, "/api/message/read-aloud", read_aloud, Endpoint_AuthWebAPI);
 }

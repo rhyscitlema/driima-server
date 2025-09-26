@@ -113,17 +113,25 @@
 	border-radius: 4px;
 }
 
-.reply-preview.hidden {
-	display: none;
-}
-
-.cancel-reply {
+.reply-preview .cancel {
 	background: transparent;
 	border: none;
-	font-size: 16px;
-	cursor: pointer;
 	color: #999;
-	margin-left: auto;
+	margin-left: auto; /* align right */
+}
+
+.audio-playback {
+	display: flex;
+}
+
+.audio-playback audio {
+	width: 100%;
+}
+
+.audio-playback .cancel {
+	background: black;
+	border: none;
+	color: white;
 }
 
 code:not([class]) {
@@ -136,7 +144,7 @@ pre[class*="language-"] {
 	font-size: 12px;
 }
 
-/* options dropdown button: BEGIN */
+/* options dropdown button: {{{ */
 
 .options-button {
 	background-color: transparent;
@@ -214,4 +222,4 @@ pre[class*="language-"] {
 	display: block;
 }
 
-/* options dropdown button: END */
+/* options dropdown button: }}} */
