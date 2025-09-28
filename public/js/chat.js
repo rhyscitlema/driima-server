@@ -514,7 +514,7 @@ class PageInfo {
 				content: [
 					{
 						tag: 'button', class: 'reply-btn', text: 'Reply',
-						events: { 'click': () => this.onReplyButton(message) }
+						events: { 'click': this.onReplyButton.bind(this) }
 					},
 					{
 						tag: 'span', class: 'date-sent',
