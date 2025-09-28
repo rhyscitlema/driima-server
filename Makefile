@@ -16,8 +16,8 @@ LIBWEB = ../libweb/
 LIBAPP_A = $(LIBAPP)build/libapp.a
 LIBWEB_A = $(LIBWEB)build/libweb.a
 
-INCLUDE_FILES = ./*.h $(LIBAPP)src/*.h $(LIBWEB)src/*.h \
-	models/*.h controllers/*.h
+INCLUDE_FILES = $(LIBAPP)src/*.h $(LIBWEB)src/*.h \
+	includes/*.h controllers/*.h
 
 #-------------------------------------------------
 
@@ -42,7 +42,7 @@ VALID = $(OUT_DIR)validate.done
 default: $(VALID)
 
 $(OUT_DIR):
-	mkdir -p $(OUT_DIR)models/
+	mkdir -p $(OUT_DIR)helpers/
 	mkdir -p $(OUT_DIR)services/
 	mkdir -p $(OUT_DIR)controllers/
 

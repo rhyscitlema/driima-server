@@ -31,7 +31,8 @@
 	"Failed to delete the message": "Échec de la suppression du message",
 	"Failed to hide the message from AI": "Échec du masquage du message pour l'IA",
 	"All prior messages will be skipped": "Tous les messages précédents seront ignorés",
-	"Internal Error: No output in AI response.": "Erreur interne : aucune sortie dans la réponse de l'IA.",
-	"The request to AI failed with status %d.": "La requête vers l'IA a échoué avec le statut %d.",
-	"Failed to read the response content from AI.": "Échec de la lecture du contenu de la réponse de l'IA."
+	"Internal Error: No output in AI response.": "Erreur interne: aucune sortie dans la réponse de l'IA.",
+	"File name must end with an extension: %s": "Le nom du fichier doit se terminer par une extension: %s",
+	"The HTTP request failed with status %d.": "La requête HTTP a échoué avec le statut %d.",
+	"Failed to read the HTTP response content.": "Échec de la lecture du contenu de la réponse HTTP."
 }

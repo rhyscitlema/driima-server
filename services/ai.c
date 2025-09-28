@@ -1,6 +1,5 @@
-#include <stdio.h>
-#include <curl/curl.h>
-#include "../models/message.h"
+#include <http_fetch.h>
+#include "../includes/message.h"
 
 static JsonObject *get_message(const char *role, const char *content)
 {
@@ -100,76 +99,29 @@ static bool process_ai_response(const char *response, JsonArray *messages, DbCon
 	return send_to_ai_again;
 }
 
-typedef struct AIResponse
-{
-	int duration;
-	int status_code;
-	Charray content;
-} AIResponse;
-
-// Callback function to handle the response content
-static size_t write_callback(void *ptr, size_t size, size_t nmemb, void *userdata)
-{
-	CLEAR_ERRNO;
-	size_t total_size = size * nmemb;
-	Charray *response = (Charray *)userdata;
-	if (response->ext->add(response, (char *)ptr, total_size) != 0)
-		return 0;
-	return total_size;
-}
-
-static void send_request_to_ai(CURL *curl, const char *request_content, AIResponse *response)
-{
-	// reset the response
-	response->status_code = 0;
-	clear_char_array(&response->content);
-
-	time_us_t start = time_us();
-	curl_easy_setopt(curl, CURLOPT_POSTFIELDS, request_content);
-
-	// Perform the request
-	CURLcode res = curl_easy_perform(curl);
-	if (res != CURLE_OK)
-	{
-		APP_LOG(LOG_DEBUG, "Payload: %s", request_content);
-		APP_LOG(LOG_ERROR, "curl_easy_perform() failed: %s.", curl_easy_strerror(res));
-		goto finish;
-	}
-
-	long response_code;
-	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
-	response->status_code = (int)response_code;
-
-	if (response->status_code != 200)
-	{
-		APP_LOG(LOG_DEBUG, "Payload: %s", request_content);
-		APP_LOG(LOG_ERROR, "Response:%d: %s", response->status_code, response->content.data);
-	}
-	else if (str_empty(response->content.data))
-	{
-		APP_LOG(LOG_DEBUG, "Payload: %s", request_content);
-		APP_LOG(LOG_ERROR, "Failed to read the response content from AI.");
-	}
-
-finish:
-	response->duration = (int)(time_us() - start) / 1000000;
-}
-
 /* store the HTTP request in the database */
-static void store_http_request(const char *api_url, const char *request_content, const AIResponse *response, DbContext *dbc, const char *messageId)
+static void store_http_request(HttpFetch *fetch, const char *request_content, const HttpResponse *response, DbContext *dbc, const char *messageId)
 {
 	DbQuery query = {.dbc = dbc};
+
 	query.sql =
-		"INSERT INTO HttpRequests\n"
-		"(MessageId, URL, Duration, StatusCode, RequestContent, ResponseContent)\n"
-		"VALUES (UNHEX(?), ?, ?, ?, ?, ?);\n";
+		"INSERT INTO HttpRequests (\n"
+		"\tMessageId,\n"
+		"\tURL,\n"
+		"\tDuration,\n"
+		"\tStatusCode,\n"
+		"\tRequestContent,\n"
+		"\tResponseHeaders,\n"
+		"\tResponseContent)\n"
+		"VALUES (UNHEX(?), ?, ?, ?, ?, ?, ?);\n";
 
 	JsonNode argv[8];
 	argv[query.argc++] = json_new_str(messageId, true);
-	argv[query.argc++] = json_new_str(api_url, false);
+	argv[query.argc++] = json_new_str(fetch->url, false);
 	argv[query.argc++] = json_new_int(response->duration, false);
 	argv[query.argc++] = json_new_int(response->status_code, false);
 	argv[query.argc++] = json_new_str(request_content, true);
+	argv[query.argc++] = json_new_str(response->headers.data, true);
 	argv[query.argc++] = json_new_str(response->content.data, true);
 
 	sql_exec(&query, argv);
@@ -204,49 +156,34 @@ static void chat_with_ai(DbContext *dbc, int roomId, const char *messageId)
 	m.parentId = messageId;
 	m.roomId = roomId;
 
-	const char *api_url = get_setting("AI_API_URL");
-	if (str_empty(api_url))
-	{
-		APP_LOG(LOG_ERROR, "AI_API_URL not found");
-		return;
-	}
-
-	const char *api_key = get_setting("AI_API_KEY");
-	if (str_empty(api_key))
-	{
-		APP_LOG(LOG_ERROR, "AI_API_KEY not found");
-		return;
-	}
-
-	CURL *curl = curl_easy_init();
-	if (curl == NULL)
-	{
-		APP_LOG(LOG_ERROR, "Failed to initialize curl");
-		return;
-	}
-
-	curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 30L);
-	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10 * 60L);
-
 	char _buffer[2048];
 	Charray buffer = buffer_to_char_array(_buffer, sizeof(_buffer));
-	AIResponse response = {.content = new_char_array("ai_response")};
 
-	curl_easy_setopt(curl, CURLOPT_URL, api_url);
-	curl_easy_setopt(curl, CURLOPT_POST, 1L);
-	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-
-	// Set the callback function to handle the HTTP response
-	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
-	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response.content);
-
-	struct curl_slist *headers = NULL;
-	headers = curl_slist_append(headers, "Content-Type: application/json");
-	sprintf(_buffer, "Authorization: Bearer %s", api_key);
-	headers = curl_slist_append(headers, _buffer);
-	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-
+	HttpResponse response = {.content = new_char_array("ai_response")};
 	JsonObject *payload = NULL; // declare before the first goto
+
+	HttpFetch fetch = {
+		.method = "POST",
+		.content_type = "application/json",
+		.response_timeout = 10 * 60};
+
+	fetch.url = get_setting("AI_API_URL");
+	const char *api_key = get_setting("AI_API_KEY");
+
+	if (str_empty(fetch.url) || str_empty(api_key))
+	{
+		m.content = "AI_API_URL or AI_API_KEY not found";
+		goto finish;
+	}
+
+	if (http_fetch_init(&fetch) != 0)
+	{
+		m.content = "http_fetch_init() failed";
+		goto finish;
+	}
+
+	bprintf(&buffer, "Authorization: Bearer %s", api_key);
+	add_request_header_v2(&fetch, _buffer);
 
 	struct App *app = get_app();
 	const char *cwd = str_empty(app->cwd) ? "." : app->cwd;
@@ -255,13 +192,19 @@ static void chat_with_ai(DbContext *dbc, int roomId, const char *messageId)
 	sprintf(filename, "%s/ai/prompt.json", cwd);
 
 	if (buffer.ext->read_file(&buffer, filename) != 0)
+	{
+		m.content = "Failed to read prompt.json file";
 		goto finish;
+	}
 
 	payload = cJSON_Parse(buffer.data);
 	sprintf(filename, "%s/ai/developer_prompt.txt", cwd);
 
 	if (buffer.ext->read_file(&buffer, filename) != 0)
+	{
+		m.content = "Failed to read developer_prompt.txt file";
 		goto finish;
+	}
 
 	JsonArray *messages = json_get_node(payload, "input");
 	json_array_add(messages, get_message("developer", buffer.data));
@@ -281,7 +224,10 @@ static void chat_with_ai(DbContext *dbc, int roomId, const char *messageId)
 	argv[query.argc++] = json_new_int(roomId, false);
 
 	if (sql_exec(&query, argv) != 0)
+	{
+		m.content = tl("Internal error: failed to get data");
 		goto finish;
+	}
 
 	query.callback = messages_callback;
 	query.callback_context = messages;
@@ -291,37 +237,36 @@ static void chat_with_ai(DbContext *dbc, int roomId, const char *messageId)
 		"and DateSent > ?\n"
 		"order by RoomId, DateSent\n";
 
+	// roomId already added before, so just add skippedDateSent
 	argv[query.argc++] = json_new_str(skippedDateSent, false);
 
 	if (sql_exec(&query, argv) != 0)
+	{
+		m.content = tl("Internal error: failed to get data");
 		goto finish;
+	}
 
 	while (true)
 	{
 		char *request_content = cJSON_Print(payload);
 		if (request_content == NULL)
 		{
-			APP_LOG(LOG_ERROR, "Failed to serialize json payload");
-			continue;
+			m.content = tl("Failed to JSON serialize");
+			break;
 		}
-		send_request_to_ai(curl, request_content, &response);
 
-		store_http_request(api_url, request_content, &response, dbc, m.parentId);
+		send_http_request(&fetch, NS(request_content), &response, &buffer);
+
+		if (response.status_code != 200)
+			APP_LOG(LOG_DEBUG, "request_content: %s", request_content);
+
+		store_http_request(&fetch, request_content, &response, dbc, m.parentId);
 
 		cJSON_free(request_content);
 
 		if (response.status_code != 200)
 		{
-			sprintf(_buffer, tl("The request to AI failed with status %d."), response.status_code);
 			m.content = _buffer;
-			add_message(dbc, m, NULL);
-			break;
-		}
-
-		if (str_empty(response.content.data))
-		{
-			m.content = tl("Failed to read the response content from AI.");
-			add_message(dbc, m, NULL);
 			break;
 		}
 
@@ -330,11 +275,12 @@ static void chat_with_ai(DbContext *dbc, int roomId, const char *messageId)
 	}
 
 finish:
-	response.content.ext->free(&response.content);
+	if (m.content != NULL)
+		add_message(dbc, m, NULL);
 	cJSON_Delete(payload);
-	curl_slist_free_all(headers);
-	curl_easy_cleanup(curl);
-	CLEAR_ERRNO;
+	http_response_cleanup(&response);
+	http_fetch_cleanup(&fetch);
+	errno = 0;
 }
 
 errno_t send_message_to_ai(struct send_to_ai *data)
@@ -354,6 +300,95 @@ errno_t send_message_to_ai(struct send_to_ai *data)
 	update_room_state(&dbc, data->roomId, RoomState_Normal);
 
 	_free(data, data->app_backup.malloc_tracker); // must come second to last
+
 	set_app(NULL, SetApp_Clear); // must come last
 	return 0;
 }
+
+errno_t text_to_speech(struct tts_output *out, struct tts_input info, Charray *buffer)
+{
+	assert(out != NULL);
+	assert(info.input != NULL);
+	assert(buffer != NULL);
+
+	CHECK_ERRNO errno;
+	JsonObject *payload = NULL; // declare before the first goto
+
+	HttpResponse response = {
+		.headers = new_char_array("tts_headers"),
+		.content = new_char_array("tts_content"),
+		.get_response_headers = true};
+
+	HttpFetch fetch = {
+		.url = "https://api.openai.com/v1/audio/speech",
+		.method = "POST",
+		.content_type = "application/json",
+		.response_timeout = 10 * 60};
+
+	const char *api_key = get_setting("AI_API_KEY");
+	if (str_empty(api_key))
+	{
+		bprintf(buffer, "AI_API_KEY not found");
+		return EAGAIN;
+	}
+
+	errno_t e = http_fetch_init(&fetch);
+	if (e != 0)
+	{
+		bprintf(buffer, "http_fetch_init() failed");
+		return e;
+	}
+
+	bprintf(buffer, "Authorization: Bearer %s", api_key);
+	add_request_header_v2(&fetch, buffer->data);
+
+	if (str_empty(info.model))
+		info.model = "tts-1";
+
+	if (str_empty(info.voice))
+		info.voice = "alloy";
+
+	payload = json_new_object();
+	json_put_string(payload, "model", info.model, 0);
+	json_put_string(payload, "voice", info.voice, 0);
+	json_put_string(payload, "input", info.input, 0);
+
+	char *request_content = cJSON_Print(payload);
+	if (request_content == NULL)
+	{
+		bprintf(buffer, tl("Failed to serialize json payload"));
+		e = errno ? errno : EINVAL;
+		goto finish;
+	}
+
+	send_http_request(&fetch, NS(request_content), &response, buffer);
+
+	if (response.status_code == 200)
+	{
+		// move response.content to out->content
+		out->content.ext->free(&out->content); // avoid memory leaks
+		out->content = response.content; // transfer the char array
+		response.content = new_char_array(NULL); // nullify the char array
+	}
+	else APP_LOG(LOG_DEBUG, "request_content: %s", request_content);
+
+	store_http_request(&fetch, request_content, &response, info.dbc, info.messageId);
+
+	cJSON_free(request_content);
+
+	if (response.status_code != 200)
+	{
+		e = errno ? errno : EAGAIN;
+		goto finish;
+	}
+
+	APP_LOG(LOG_INFO, "Got a voice file of size %zu.", out->content.length);
+
+finish:
+	cJSON_Delete(payload);
+	http_response_cleanup(&response);
+	http_fetch_cleanup(&fetch);
+	errno = 0;
+	return e;
+}
+

@@ -1,6 +1,6 @@
 #include <ctype.h>
 #include "base.h"
-#include "../models/message.h"
+#include "../includes/message.h"
 
 typedef struct UrlArgs
 {
@@ -41,7 +41,7 @@ typedef struct RoomInfo
 	enum RoomState state;
 	char groupName[128];
 	char groupAbout[512];
-	char groupBanner[128];
+	char groupBanner[FILE_PATH_STORE];
 	char skippedMessageId[GUID_STORE];
 } RoomInfo;
 
@@ -537,6 +537,25 @@ static apr_status_t hide_message_from_ai(HttpContext *c)
 	return HTTP_NO_CONTENT;
 }
 
+struct voice_info
+{
+	int roomId;
+	char voice_file[FILE_PATH_STORE];
+	char *message_content;
+};
+
+static errno_t get_voice_info(void *context, int argc, char **argv, char **columns)
+{
+	CLEAR_ERRNO;
+	(void)argc;
+	(void)columns;
+	struct voice_info *info = (struct voice_info *)context;
+	info->roomId = str_to_int(argv[0]);
+	str_copy(info->voice_file, sizeof(info->voice_file), argv[1]);
+	info->message_content = str_duplicate(NULL, argv[2], "info_message_content");
+	return 0;
+}
+
 static apr_status_t read_aloud(HttpContext *c)
 {
 	char id[GUID_STORE];
@@ -545,7 +564,96 @@ static apr_status_t read_aloud(HttpContext *c)
 	if (status != OK)
 		return status;
 
-	return http_redirect(c, "/audio/example.mp3", HTTP_INTERNAL_REDIRECT, false);
+	char buffer[1024];
+	struct voice_info info = {0};
+	DbQuery query = {.dbc = &c->dbc};
+
+	query.callback = get_voice_info;
+	query.callback_context = &info;
+
+	query.sql = "SELECT m.RoomId, voice.Path,\n"
+		"IF(voice.Id IS NULL, m.Content, NULL) AS Content\n"
+		"FROM Messages as m\n"
+		"LEFT JOIN FilePaths as voice on voice.Id = m.FileId\n"
+		"WHERE m.Id = UNHEX(?) AND m.DateDeleted IS NULL\n";
+
+	JsonValue argv[2];
+	argv[query.argc++] = json_new_str(id, false);
+
+	if (sql_exec(&query, argv) != 0)
+	{
+		strcpy(buffer, tl("Internal error: failed to get data"));
+		status = 500;
+		goto finish;
+	}
+
+	// TODO: check if user is a member of the room
+
+	if (str_empty(info.voice_file))
+	{
+		if (str_empty(info.message_content))
+		{
+			strcpy(buffer, tl("The message appears to have been deleted."));
+			status = 400;
+			goto finish;
+		}
+
+		struct tts_input in = {
+			.input = info.message_content,
+			.dbc = &c->dbc,
+			.messageId = id
+		};
+		struct tts_output out = {.content = new_char_array(NULL)};
+		Charray buf = buffer_to_char_array(buffer, sizeof(buffer));
+
+		errno_t e = text_to_speech(&out, in, &buf);
+		if (e != 0)
+		{
+			status = errno_to_status_code(e);
+			goto finish;
+		}
+
+		UploadFile uf = {0};
+		uf.sessionId = str_to_long(c->identity.sid);
+
+		uf.data.content = array_to_string(&out.content);
+		uf.data.content_type.value = out.content_type;
+
+		strcpy(uf.folder, "ai_voice");
+		sprintf(uf.name, "%s.mp3", id);
+
+		// provide the filename seen by user upon download
+		uf.data.disposition.filename = "DRIIMA-voice.mp3";
+
+		e = complete_file_upload(&c->dbc, &uf, &buf);
+		out.content.ext->free(&out.content); // free memory
+
+		if (e != 0)
+			goto finish;
+
+		query.callback = NULL;
+		query.sql = "UPDATE Messages SET FileId = ? WHERE Id = UNHEX(?)";
+		query.argc = 0;
+		argv[query.argc++] = json_new_long(uf.id, false);
+		argv[query.argc++] = json_new_str(id, false);
+		sql_exec(&query, argv);
+
+		sprintf(info.voice_file, "%s/%s", uf.folder, uf.name);
+	}
+
+	if (!file_path_to_full_url(c, buffer, sizeof(buffer), info.voice_file))
+		status = 500;
+
+	vm_add_string(c, "url", buffer, 0);
+
+finish:
+	if (status == OK)
+		status = process_model(c, HTTP_OK);
+	else
+		status = http_problem(c, NULL, buffer, status);
+
+	_free(info.message_content, "info_message_content");
+	return status;
 }
 
 static apr_status_t join_group(HttpContext *c)

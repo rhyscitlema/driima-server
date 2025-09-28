@@ -2,7 +2,9 @@
 #define _MESSAGE_H_
 
 #include <db_context.h>
-#include "../enums.h"
+#include "../includes/enums.h"
+
+#define FILE_PATH_STORE 200
 
 typedef struct Message
 {
@@ -27,5 +29,21 @@ struct send_to_ai
 	int roomId;
 };
 errno_t send_message_to_ai(struct send_to_ai *data);
+
+struct tts_input
+{
+	const char *model;
+	const char *voice;
+	const char *input;
+
+	DbContext *dbc; // must not be NULL
+	const char *messageId; // can be NULL
+};
+struct tts_output
+{
+	Charray content;
+	char content_type[GUID_STORE];
+};
+errno_t text_to_speech(struct tts_output *out, struct tts_input info, Charray *buffer);
 
 #endif
