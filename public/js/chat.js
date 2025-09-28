@@ -1,6 +1,7 @@
 import store from 'store';
 import openPage from 'pages';
-import { toast, createElement, updateElement, createSVGElement } from 'spart';
+import { toast, removeToast, newBusyToast } from 'spart';
+import { createElement, updateElement, createSVGElement } from 'spart';
 import { _fetch, sendData, showProblemDetail } from 'fetch';
 import { tl } from 'i18n';
 
@@ -106,13 +107,18 @@ class PageInfo {
 		e.target.disabled = false;
 	}
 
-	playAudio(blob) {
+	playAudio(data) {
+		if (!this.page.isConnected) {
+			console.warn(`Skipped playAudio() as page ${this.page.id} is not connected.`);
+			return;
+		}
 		const audio = this.readAloudElem.querySelector("audio");
 		if (audio.src) // if one already loaded
 			this.cancelAudio();
-		audio.src = URL.createObjectURL(blob);
-		audio.play(); // start playback
 		this.readAloudElem.hidden = false;
+		audio.src = data.url;
+		audio.play(); // start playback
+		audio.focus(); // only works if element is visible and not disabled
 	}
 
 	cancelAudio() {
@@ -362,11 +368,13 @@ class PageInfo {
 	}
 
 	onReadAloud(e) {
+		const busy = newBusyToast();
 		const message = this.getMessageFromEvent(e);
 		const url = "/api/message/read-aloud?id=" + message.id;
 		_fetch(url).then((response) => {
+			removeToast(busy);
 			if (response.ok)
-				return response.blob().then(this.playAudio.bind(this));
+				return response.json().then(this.playAudio.bind(this));
 			else showProblemDetail(response);
 		});
 	}
