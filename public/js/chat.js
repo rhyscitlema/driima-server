@@ -239,9 +239,6 @@ class PageInfo {
 	setMessages(content) {
 		const room = content.roomInfo;
 
-		this.changeSkippedMessage(room.skippedMessageId);
-		// above must come before below
-
 		const firstTime = !this.room.name;
 		if (firstTime) {
 			this.room = room;
@@ -263,6 +260,9 @@ class PageInfo {
 			if (firstTime)
 				this.scrollToBottom();
 		}
+
+		// below comes after as messages must be added to the DOM first
+		this.changeSkippedMessage(room.skippedMessageId, firstTime);
 	}
 
 	initPage() {
@@ -394,9 +394,9 @@ class PageInfo {
 		}
 	}
 
-	changeSkippedMessage(messageId) {
+	changeSkippedMessage(messageId, firstTime) {
 		let id = this.room.skippedMessageId;
-		if (id == messageId)
+		if (id == messageId && !firstTime)
 			return;
 
 		if (id) {

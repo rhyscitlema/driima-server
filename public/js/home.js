@@ -12,7 +12,7 @@ function roomSelected(e) {
 };
 
 function getRoomUI(info) {
-	const name = info.roomName || info.groupName;
+	const name = info.groupName + (info.roomName ? (": " + info.roomName) : "");
 
 	const latest =
 		!info.latestDateSent ? { tag: "i", text: "(no message)" }:

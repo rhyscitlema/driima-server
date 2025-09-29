@@ -39,6 +39,7 @@ typedef struct RoomInfo
 	int memberId;
 	int memberStatus;
 	enum RoomState state;
+	char roomName[64];
 	char groupName[128];
 	char *groupAbout;
 	char groupBanner[FILE_PATH_STORE];
@@ -53,12 +54,15 @@ static errno_t room_info_callback(void *context, int argc, char **argv, char **c
 	for (int i = 0; i < argc; i++)
 	{
 		KeyValuePair x = {columns[i], argv[i]};
+
 		KVP_TO_INT(x, room->id, "id")
 		KVP_TO_INT(x, room->groupId, "groupId")
 		KVP_TO_INT(x, room->joinKey, "joinKey")
 		KVP_TO_INT(x, room->memberId, "memberId")
 		KVP_TO_INT(x, room->memberStatus, "memberStatus")
 		KVP_TO_INT(x, room->state, "roomState")
+
+		KVP_TO_STR_COPY(x, room->roomName, sizeof(room->roomName), "roomName")
 		KVP_TO_STR_COPY(x, room->groupName, sizeof(room->groupName), "groupName")
 		KVP_TO_STR_COPY(x, room->groupBanner, sizeof(room->groupBanner), "groupBanner")
 		KVP_TO_STR_COPY(x, room->skippedMessageId, sizeof(room->skippedMessageId), "skippedMessageId")
@@ -200,10 +204,16 @@ static apr_status_t get_messages(HttpContext *c)
 
 	JsonObject *info = json_new_object();
 	json_put_number(info, "id", room.id, 0);
-	json_put_string(info, "name", room.groupName, 0);
 	json_put_string(info, "skippedMessageId", room.skippedMessageId, 0);
+
+	if (str_empty(room.roomName))
+		strcpy(buffer, room.groupName);
+	else sprintf(buffer, "%s: %s", room.groupName, room.roomName);
+	json_put_string(info, "name", buffer, 0);
+
 	if (room.memberId != 0)
 		json_put_node(info, "joined", cJSON_CreateBool(true), 0);
+
 	vm_add_node(c, "roomInfo", info, 0);
 	vm_add_node(c, "messages", context.messages, 0);
 
@@ -363,7 +373,7 @@ static apr_status_t send_message(HttpContext *c)
 		goto finish;
 	}
 
-	char id[GUID_STORE];
+	char id[GUID_STORE] = {0};
 	if (add_message(&c->dbc, m, id) != 0)
 	{
 		strcpy(buffer, tl("Failed to add the message"));
@@ -630,7 +640,7 @@ static apr_status_t read_aloud(HttpContext *c)
 		uf.data.disposition.filename = "DRIIMA-voice.mp3";
 
 		e = complete_file_upload(&c->dbc, &uf, &buf);
-		out.content.ext->free(&out.content); // free memory
+		charray_free(&out.content); // free memory
 
 		if (e != 0)
 			goto finish;
@@ -708,11 +718,14 @@ static apr_status_t chat_page(HttpContext *c)
 	if (status != OK)
 		return http_problem(c, NULL, buffer, status);
 
-	set_page_title(c, room.groupName);
-
 	JsonObject *og = json_new_object();
 	json_put_string(og, "Type", "website", 0);
-	json_put_string(og, "Title", room.groupName, 0);
+
+	if (str_empty(room.roomName))
+		sprintf(buffer, "%s - DRIIMA", room.groupName);
+	else sprintf(buffer, "%s: %s - DRIIMA", room.groupName, room.roomName);
+	json_put_string(og, "Title", buffer, 0);
+	set_page_title(c, buffer);
 
 	json_put_string(og, "Description", room.groupAbout, 0);
 	_free(room.groupAbout, "room_groupAbout");

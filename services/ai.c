@@ -366,7 +366,7 @@ errno_t text_to_speech(struct tts_output *out, struct tts_input info, Charray *b
 	if (response.status_code == 200)
 	{
 		// move response.content to out->content
-		out->content.ext->free(&out->content); // avoid memory leaks
+		charray_free(&out->content); // avoid memory leaks
 		out->content = response.content; // transfer the char array
 		response.content = new_char_array(NULL); // nullify the char array
 	}

@@ -50,7 +50,7 @@ body {
 }
 
 .chat-room-info {
-	margin-left: 16px;
+	margin-left: 0.75em;
 	width: 0;
 	flex-grow: 1;
 	display: flex;
