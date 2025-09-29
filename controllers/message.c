@@ -40,9 +40,11 @@ typedef struct RoomInfo
 	int memberStatus;
 	enum RoomState state;
 	char groupName[128];
-	char groupAbout[512];
+	char *groupAbout;
 	char groupBanner[FILE_PATH_STORE];
 	char skippedMessageId[GUID_STORE];
+
+	bool get_extra_info;
 } RoomInfo;
 
 static errno_t room_info_callback(void *context, int argc, char **argv, char **columns)
@@ -57,15 +59,17 @@ static errno_t room_info_callback(void *context, int argc, char **argv, char **c
 		KVP_TO_INT(x, room->memberId, "memberId")
 		KVP_TO_INT(x, room->memberStatus, "memberStatus")
 		KVP_TO_INT(x, room->state, "roomState")
-		KVP_TO_STR_V2(x, room->groupName, sizeof(room->groupName), "groupName")
-		KVP_TO_STR_V2(x, room->groupAbout, sizeof(room->groupAbout), "groupAbout")
-		KVP_TO_STR_V2(x, room->groupBanner, sizeof(room->groupBanner), "groupBanner")
-		KVP_TO_STR_V2(x, room->skippedMessageId, sizeof(room->skippedMessageId), "skippedMessageId")
+		KVP_TO_STR_COPY(x, room->groupName, sizeof(room->groupName), "groupName")
+		KVP_TO_STR_COPY(x, room->groupBanner, sizeof(room->groupBanner), "groupBanner")
+		KVP_TO_STR_COPY(x, room->skippedMessageId, sizeof(room->skippedMessageId), "skippedMessageId")
+
+		if (room->get_extra_info)
+			KVP_TO_STR_DUPL(x, room->groupAbout, "room_groupAbout", "groupAbout")
 	}
 	return 0;
 }
 
-static apr_status_t get_room_info(HttpContext *c, RoomInfo *room, UrlArgs args, char *buffer)
+static apr_status_t get_room_info(HttpContext *c, RoomInfo *room, UrlArgs args, char *buffer, bool get_extra_info)
 {
 	DbQuery query = {.dbc = &c->dbc};
 	query.callback = room_info_callback;
@@ -82,8 +86,8 @@ static apr_status_t get_room_info(HttpContext *c, RoomInfo *room, UrlArgs args, 
 	argv[query.argc++] = json_new_int(args.roomId, false);
 	argv[query.argc++] = json_new_int(args.groupId, false);
 
-	room->id = 0; // first clear
-	room->memberId = 0;
+	memset(room, 0, sizeof(*room)); // first clear
+	room->get_extra_info = get_extra_info;
 
 	if (sql_exec(&query, argv) != 0)
 	{
@@ -170,7 +174,7 @@ static apr_status_t get_messages(HttpContext *c)
 	char buffer[1024];
 	RoomInfo room;
 
-	apr_status_t status = get_room_info(c, &room, args, buffer);
+	apr_status_t status = get_room_info(c, &room, args, buffer, false);
 	if (status != OK)
 		return http_problem(c, NULL, buffer, status);
 
@@ -310,7 +314,7 @@ static apr_status_t send_message(HttpContext *c)
 	args.roomId = (int)json_get_number(msg, "roomId");
 
 	RoomInfo room;
-	status = get_room_info(c, &room, args, buffer);
+	status = get_room_info(c, &room, args, buffer, false);
 	if (status != OK)
 		goto finish;
 
@@ -662,7 +666,7 @@ static apr_status_t join_group(HttpContext *c)
 	char buffer[1024];
 	RoomInfo room;
 
-	apr_status_t status = get_room_info(c, &room, args, buffer);
+	apr_status_t status = get_room_info(c, &room, args, buffer, false);
 	if (status != OK)
 		return http_problem(c, NULL, buffer, status);
 
@@ -700,7 +704,7 @@ static apr_status_t chat_page(HttpContext *c)
 	char buffer[1024];
 	RoomInfo room;
 
-	apr_status_t status = get_room_info(c, &room, args, buffer);
+	apr_status_t status = get_room_info(c, &room, args, buffer, true);
 	if (status != OK)
 		return http_problem(c, NULL, buffer, status);
 
@@ -709,7 +713,10 @@ static apr_status_t chat_page(HttpContext *c)
 	JsonObject *og = json_new_object();
 	json_put_string(og, "Type", "website", 0);
 	json_put_string(og, "Title", room.groupName, 0);
+
 	json_put_string(og, "Description", room.groupAbout, 0);
+	_free(room.groupAbout, "room_groupAbout");
+	room.groupAbout = NULL;
 
 	get_base_url(c->request, buffer, sizeof(buffer));
 	sprintf(buffer + strlen(buffer), "%s?g=%d", c->request->uri, room.groupId);
