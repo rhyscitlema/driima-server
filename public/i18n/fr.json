@@ -22,6 +22,7 @@
 	"Back": "Retour",
 	"(no message)": "(pas de message)",
 	"(deleted message)": "(message supprimé)",
+	"Failed to copy the message": "Échec de la copie du message",
 	"Visit anonymous group": "Vous n’êtes dans aucun groupe! Cliquez ici pour visiter le groupe Anonyme.",
 	"An error has occurred": "Une erreur s’est produite"
 }

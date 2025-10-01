@@ -81,6 +81,7 @@ class PageInfo {
 				// Clear input and reset reply state
 				this.messageInput.value = "";
 				this.cancelReply();
+				this.shouldScroll = true;
 
 				// Fetch the new message immediately
 				this.fetchMessages();
@@ -122,14 +123,17 @@ class PageInfo {
 	}
 
 	cancelAudio() {
-		const audio = this.readAloudElem.querySelector("audio");
-		if (audio.src) {
-			audio.pause();
-			URL.revokeObjectURL(audio.src);
-			audio.removeAttribute('src');
-			audio.load(); // reset the element
+		const elem = this.readAloudElem;
+		if (elem) {
+			const audio = elem.querySelector("audio");
+			if (audio.src) {
+				audio.pause();
+				URL.revokeObjectURL(audio.src);
+				audio.removeAttribute('src');
+				audio.load(); // reset the element
+			}
+			elem.hidden = true;
 		}
-		this.readAloudElem.hidden = true;
 	}
 
 	// Cancel the current reply
@@ -257,8 +261,10 @@ class PageInfo {
 				}
 			});
 
-			if (firstTime)
+			if (firstTime || this.shouldScroll) {
+				this.shouldScroll = false;
 				this.scrollToBottom();
+			}
 		}
 
 		// below comes after as messages must be added to the DOM first
