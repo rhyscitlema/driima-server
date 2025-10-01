@@ -6,18 +6,18 @@ struct get_rooms
 	JsonArray *rooms;
 };
 
-static errno_t get_rooms_callback(void *context, int argc, char **argv, char **columns)
+static errno_t get_rooms_callback(DbResult r)
 {
-	struct get_rooms *info = (struct get_rooms *)context;
+	struct get_rooms *info = (struct get_rooms *)r.context;
 
 	JsonArray *room = json_new_object();
 	json_array_add(info->rooms, room);
 
 	const char *logo = NULL, *banner = NULL;
 
-	for (int i = 0; i < argc; i++)
+	for (unsigned i = 0; i < r.argc; i++)
 	{
-		KeyValuePair x = {columns[i], argv[i]};
+		const_KVP x = {r.columns[i], r.argv[i]};
 		json_kvp_number(room, x, "roomId");
 		json_kvp_number(room, x, "groupId");
 		json_kvp_string(room, x, "roomName");

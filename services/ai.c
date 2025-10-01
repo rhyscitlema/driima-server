@@ -127,24 +127,24 @@ static void store_http_request(HttpFetch *fetch, const char *request_content, co
 	sql_exec(&query, argv);
 }
 
-static errno_t skippedDateSent_callback(void *context, int argc, char **argv, char **columns)
+static errno_t skippedDateSent_callback(DbResult r)
 {
 	CHECK_SQL_CALLBACK(1);
-	str_copy((char *)context, DATE_STORE, argv[0]);
+	str_copy((char *)r.context, DATE_STORE, r.argv[0]);
 	return 0;
 }
 
-static errno_t messages_callback(void *context, int argc, char **argv, char **columns)
+static errno_t messages_callback(DbResult r)
 {
 	CHECK_SQL_CALLBACK(6);
 
-	int userId = str_to_int(argv[2]);
+	int userId = str_to_int(r.argv[2]);
 	const char *role = userId == 1 ? "assistant" : "user";
 
-	JsonObject *msg = get_message(role, argv[5]);
-	// json_put_string(msg, "name", argv[2], 0);
+	JsonObject *msg = get_message(role, r.argv[5]);
+	// json_put_string(msg, "name", r.argv[2], 0);
 
-	json_array_add((JsonArray *)context, msg);
+	json_array_add((JsonArray *)r.context, msg);
 	return 0;
 }
 

@@ -1,9 +1,9 @@
 #include "base.h"
 
-static errno_t user_query_callback(void *context, int argc, char **argv, char **columns)
+static errno_t user_query_callback(DbResult r)
 {
 	CHECK_SQL_CALLBACK(1);
-	*(row_id_t *)context = str_to_long(argv[0]);
+	*(row_id_t *)r.context = str_to_long(r.argv[0]);
 	return 0;
 }
 

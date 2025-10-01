@@ -48,12 +48,12 @@ typedef struct RoomInfo
 	bool get_extra_info;
 } RoomInfo;
 
-static errno_t room_info_callback(void *context, int argc, char **argv, char **columns)
+static errno_t room_info_callback(DbResult r)
 {
-	RoomInfo *room = (RoomInfo *)context;
-	for (int i = 0; i < argc; i++)
+	RoomInfo *room = (RoomInfo *)r.context;
+	for (unsigned i = 0; i < r.argc; i++)
 	{
-		KeyValuePair x = {columns[i], argv[i]};
+		const_KVP x = {r.columns[i], r.argv[i]};
 
 		KVP_TO_INT(x, room->id, "id")
 		KVP_TO_INT(x, room->groupId, "groupId")
@@ -138,12 +138,13 @@ static const char *messages_sql =
 	"WHERE RoomId = ? and DateSent > ?\n"
 	"ORDER by RoomId, DateSent\n";
 
-static errno_t messages_callback(void *context, int argc, char **argv, char **columns)
+static errno_t messages_callback(DbResult r)
 {
 	CHECK_SQL_CALLBACK(7);
-	struct messages_callback *info = (struct messages_callback *)context;
+	struct messages_callback *info = (struct messages_callback *)r.context;
 	JsonObject *msg = json_new_object();
 	char str[64];
+	char **argv = r.argv;
 
 	int userId = atoi(argv[2]);
 	if (userId == info->signedInUserId)
@@ -424,12 +425,12 @@ struct m_info
 	char parentId[48];
 };
 
-static errno_t m_info_callback(void *context, int argc, char **argv, char **columns)
+static errno_t m_info_callback(DbResult r)
 {
 	CHECK_SQL_CALLBACK(2);
-	struct m_info *info = (struct m_info *)context;
-	info->userId = atoi(argv[0]);
-	str_copy(info->parentId, sizeof(info->parentId), argv[1]);
+	struct m_info *info = (struct m_info *)r.context;
+	info->userId = atoi(r.argv[0]);
+	str_copy(info->parentId, sizeof(info->parentId), r.argv[1]);
 	return 0;
 }
 
@@ -558,15 +559,13 @@ struct voice_info
 	char *message_content;
 };
 
-static errno_t get_voice_info(void *context, int argc, char **argv, char **columns)
+static errno_t get_voice_info(DbResult r)
 {
-	CLEAR_ERRNO;
-	(void)argc;
-	(void)columns;
-	struct voice_info *info = (struct voice_info *)context;
-	info->roomId = str_to_int(argv[0]);
-	str_copy(info->voice_file, sizeof(info->voice_file), argv[1]);
-	info->message_content = str_duplicate(NULL, argv[2], "info_message_content");
+	CHECK_SQL_CALLBACK(3);
+	struct voice_info *info = (struct voice_info *)r.context;
+	info->roomId = str_to_int(r.argv[0]);
+	str_copy(info->voice_file, sizeof(info->voice_file), r.argv[1]);
+	info->message_content = str_duplicate(NULL, r.argv[2], "info_message_content");
 	return 0;
 }
 
