@@ -7,12 +7,12 @@ import { tl } from 'i18n';
 
 const optionsButtonSvgElem = createSVGElement(svgStrings.optionsButton);
 
-function deletedMessage(message) {
+function isDeletedMessage(message) {
 	return !message || !message.content;
 }
 
 function onReplySnippet(event) {
-	const elem = document.getElementById(event.target.dataset.messageId);
+	const elem = document.getElementById(event.target.dataset.id);
 	if (elem)
 		elem.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
@@ -73,10 +73,10 @@ class PageInfo {
 		// Build the message payload
 		const payload = {
 			roomId: this.room.id,
-			parentId: this.replyPreview.dataset.id,
+			parentId: this.replyText.dataset.id || null,
 			content: content
 		};
-		sendData('/api/message/send', 'POST', payload).then(response => {
+		sendData('/api/message/send', 'POST', payload).then(async (response) => {
 			if (response.ok) {
 				// Clear input and reset reply state
 				this.messageInput.value = "";
@@ -86,11 +86,10 @@ class PageInfo {
 				// Fetch the new message immediately
 				this.fetchMessages();
 
-				return response.json().then(info => {
-					if (info.ai_is_busy) {
-						toast("AI is busy responding, please wait");
-					}
-				});
+				const info = await response.json();
+				if (info.ai_is_busy) {
+					toast("AI is busy responding, please wait", 6);
+				}
 			}
 			else showProblemDetail(response);
 		});
@@ -138,9 +137,10 @@ class PageInfo {
 
 	// Cancel the current reply
 	cancelReply() {
-		this.replyPreview.dataset.id = null;
-		this.replyPreview.hidden = true;
+		// Do not use null below as it is converted to a string
+		this.replyText.dataset.id = "";
 		this.replyText.textContent = "";
+		this.replyPreview.hidden = true;
 	}
 
 	setPageFooter() {
@@ -333,7 +333,7 @@ class PageInfo {
 
 	setReplySnippet(elem, messageId) {
 		const message = this.messagesMap[messageId];
-		if (deletedMessage(message)) {
+		if (isDeletedMessage(message)) {
 			updateElement(elem, { text: "Reply to a deleted message" });
 			return;
 		}
@@ -350,7 +350,7 @@ class PageInfo {
 			{ text: ": " + msg }
 		];
 		updateElement(elem, { content });
-		elem.dataset.messageId = messageId;
+		elem.dataset.id = messageId;
 	}
 
 	onReplyButton(e) {
@@ -361,7 +361,6 @@ class PageInfo {
 		const message = this.getMessageFromEvent(e);
 
 		this.setReplySnippet(this.replyText, message.id);
-		this.replyPreview.dataset.id = message.id;
 		this.replyPreview.hidden = false;
 
 		const mi = this.messageInput;
@@ -496,7 +495,7 @@ class PageInfo {
 
 	// Append a message to the chat container
 	appendMessage(message) {
-		if (deletedMessage(message))
+		if (isDeletedMessage(message))
 			return;
 
 		this.appendDateSeparator(message);
