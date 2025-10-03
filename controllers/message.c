@@ -233,19 +233,12 @@ errno_t add_message(DbContext *dbc, Message m, char id[GUID_STORE])
 	char dateSent[DATE_STORE];
 	time_us_to_string(dateSent, sizeof(dateSent), m.dateSent, TIME_FORMAT_LOCAL);
 
-	if (str_empty(m.id))
-	{
-		if ((m.dateSent % 1000) == 0) // add microseconds if not already there
-			m.dateSent += rand() % 1000;
+	// add microseconds if not already there
+	if ((m.dateSent % 1000) == 0)
+		m.dateSent += rand() % 1000;
 
-		// Generate a unique ID for the message
-		sprintf(id, "%012X%016llX0000", m.roomId, m.dateSent);
-	}
-	else
-	{
-		APP_LOG(LOG_WARNING, "Message ID was provided: %s", m.id);
-		str_copy(id, GUID_STORE, m.id);
-	}
+	// Generate a unique ID for the message
+	sprintf(id, "%012X%016llX0000", m.roomId, m.dateSent);
 
 	if (m.type == 0)
 		m.type = MessageType_Normal;
@@ -272,7 +265,10 @@ errno_t add_message(DbContext *dbc, Message m, char id[GUID_STORE])
 	errno_t e = sql_exec(&query, argv);
 	if (e != 0)
 	{
-		APP_LOG(LOG_ERROR, "Failed to add the message");
+		APP_LOG(LOG_ERROR,
+			"Failed to add the message with "
+			"id: %s, parenId %s, roomId: %d, senderId: %d",
+			id, m.parentId, m.roomId, m.senderId);
 	}
 	else
 	{
@@ -374,7 +370,7 @@ static apr_status_t send_message(HttpContext *c)
 		goto finish;
 	}
 
-	char id[GUID_STORE] = {0};
+	char id[GUID_STORE];
 	if (add_message(&c->dbc, m, id) != 0)
 	{
 		strcpy(buffer, tl("Failed to add the message"));

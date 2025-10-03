@@ -22,14 +22,30 @@ INCLUDE_FILES = $(LIBAPP)src/*.h $(LIBWEB)src/*.h \
 #-------------------------------------------------
 
 # compiler flags
-BASIC_FLAGS = -std=c99 -g -Wall -Wextra -Wconversion -Wwrite-strings -pedantic
-WARN_TO_ERROR = -Werror=implicit-function-declaration -Werror=implicit-int \
-	-Wincompatible-pointer-types -Wstrict-prototypes -Werror=strict-prototypes
-SECURITY_FLAGS = -Wformat -Werror=format-security -fstack-protector-strong
+BASIC_FLAGS = -std=c99 -pedantic -g -Wall -Wextra -Wconversion
+
+WARN_TO_ERROR =\
+	-Werror=implicit-function-declaration \
+	-Werror=implicit-int \
+	-Wincompatible-pointer-types \
+	-Wstrict-prototypes \
+	-Werror=strict-prototypes
+
+SECURITY_FLAGS =\
+	-Wformat \
+	-Werror=format \
+	-Werror=format-security \
+	-Wwrite-strings \
+	-fstack-protector-strong
+
 ADVANCED_FLAGS = -fPIC -fvisibility=hidden
+
 DEFINITIONS = '-D__LIB__="$(SITE_NAME)"' -D_REENTRANT
+
 APACHE_DIRS ?= -I /usr/include/apache2 -I /usr/include/apr-1.0
+
 INCLUDES_DIRS = -I ~/.local/lib $(APACHE_DIRS) -I $(LIBAPP)src -I $(LIBWEB)src
+
 CC_FLAGS = $(BASIC_FLAGS) $(WARN_TO_ERROR) $(SECURITY_FLAGS) \
 	$(ADVANCED_FLAGS) $(DEFINITIONS) $(INCLUDES_DIRS) $(CFLAGS)
 
