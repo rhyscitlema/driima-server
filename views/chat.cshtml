@@ -3,6 +3,7 @@
 
 <head>
 	<title>@Page.HeadTitle</title>
+
 	@var og = Page.OpenGraph;
 	@if (og != null)
 	{
@@ -21,11 +22,13 @@
 		<meta name="twitter:image" content="@og.Image">
 		<meta name="twitter:url" content="@og.URL">
 	}
+
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<meta name="theme-color" content="#075e54">
 
 	<link rel="apple-touch-icon" href="/icons/logo-192x192.png" />
 	<link rel="manifest" href="/manifest.json">
+
 	<link rel="stylesheet" href="/lib/prism/prism.min.css">
 	<link rel="stylesheet" href="/lib/bootstrap/bootstrap.min.css">
 	<link rel="stylesheet" href="/lib/bootstrap/bootstrap-icons.min.css">
@@ -40,6 +43,7 @@
 	<script defer src="/lib/marked/helpers.js"></script>
 	<script defer src="/lib/prism/prism.min.js"></script>
 	<script defer src="/js/svg.js?v=1.2"></script>
+
 	<script type="importmap">
 	{
 		"imports": {
@@ -54,12 +58,13 @@
 		}
 	}
 	</script>
+
 	<script type="module">
 		import { initializeApp } from 'login';
 
 		await initializeApp({
 			isProgressiveWebApp: true,
-			i18nAssetsVersion: "1.1"
+			i18nAssetsVersion: "1.2"
 		});
 
 		document.getElementById("app-loading-indicator").hidden = true;

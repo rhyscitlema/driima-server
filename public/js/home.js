@@ -84,10 +84,10 @@ async function fetchRooms() {
 
 	const data = await response.json();
 	store.putRooms(data.rooms);
-	setRooms(data.rooms);
+	await setRooms(data.rooms);
 }
 
-export default function openHomePage() {
+async function openHomePage() {
 	const page = openPage('home', { level: 1 });
 	if (page.childElementCount) {
 		return;
@@ -120,6 +120,8 @@ export default function openHomePage() {
 	];
 	updateElement(page, { content });
 
-	return store.getRooms().then(setRooms);
+	await store.getRooms().then(setRooms);
 }
+
+export default openHomePage;
 
